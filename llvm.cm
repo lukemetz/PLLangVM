@@ -1,6 +1,3 @@
-(* 
- *   CODE FOR HOMEWORK 4
- *)
 
 group is
 
@@ -8,6 +5,10 @@ group is
   $/basis.cm
 
   parser.sml
-  representation.sml
+  int-representation.sml
+  stack-representation.sml
+  compiler.sml
+  compiler-llvm.sml
   evaluator.sml
   shell.sml
+  primitives.sml
