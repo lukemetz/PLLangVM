@@ -1,7 +1,11 @@
 CM.make "llvm.cm";
 structure P = Parser;
 structure C = CompilerLLVM 
+
+exception Error of string
+
 fun compile (P.DExpr expr) = C.compileExpr expr
+  | compile _ = raise Error ("Invalid IR enclosing")
 fun toLLVM str = compile (P.parseDecl str)
 
 fun readlist (infile : string) = let 
@@ -25,7 +29,6 @@ end
 
 val test = readlist file
 val flat_file = List.foldr (fn (x,y) => x ^ y) "" test
-val t = toLLVM flat_file
 
 fun write fileName s = let
 	val file = TextIO.openOut fileName
@@ -35,6 +38,6 @@ in
 	"All good bro"
 end
 
-val k = write (base_file ^ ".ll") t;
+val result = write (base_file ^ ".ll") (toLLVM flat_file);
 
 val _ = OS.Process.exit(OS.Process.success)

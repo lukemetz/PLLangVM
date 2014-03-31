@@ -23,7 +23,7 @@ structure CompilerLLVM = struct
            count, count + 1)))
 
   fun compileExpr expr = let
-      val _ = print (String.concat ["[compiling ", I.stringOfExpr expr, "]\n"])
+      (*val _ = print (String.concat ["[compiling ", I.stringOfExpr expr, "]\n"])*)
 
 
       val str = (case compileE expr 1 of
@@ -34,7 +34,7 @@ structure CompilerLLVM = struct
         in
           boiler ^"\n\n" ^ main_begin ^"\n" ^ str ^ "\n" ^ main_end
         end)
-      val _ = print (String.concat ["[CODE\n", str, " \n]\n"])
+      (*val _ = print (String.concat ["[CODE\n", str, " \n]\n"])*)
   in
       str
   end
