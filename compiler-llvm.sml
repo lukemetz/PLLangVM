@@ -15,13 +15,16 @@ structure CompilerLLVM = struct
   (* compile an expression into a sentence that produces the same value
      as the expression *)
 
-  and compileE (I.EVal v) count = compileV v count
-    | compileE (I.EAdd (e1,e2)) count = (case compileE e1 count of 
+  and opify_2 e1 e2 name count = (case compileE e1 count of 
       (e1_str, e1_reg, count) => (case compileE e2 count of 
         (e2_str, e2_reg, count) => (e1_str ^ "\n" ^ e2_str ^ "\n" ^ 
-          "%" ^ Int.toString count ^ "= add i32 %" ^ Int.toString e2_reg ^ ", %" ^ Int.toString e1_reg,
+          "%" ^ Int.toString count ^ "= " ^ name ^ " i32 %" ^ Int.toString e1_reg ^ ", %" ^ Int.toString e2_reg,
            count, count + 1)))
 
+
+  and compileE (I.EVal v) count = compileV v count
+    | compileE (I.EAdd (e1,e2)) count = opify_2 e1 e2 "add" count 
+    | compileE (I.ESub (e1, e2)) count = opify_2 e1 e2 "sub" count
   fun compileExpr expr = let
       (*val _ = print (String.concat ["[compiling ", I.stringOfExpr expr, "]\n"])*)
 
