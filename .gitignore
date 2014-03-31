@@ -8,3 +8,8 @@
 *.cmxs
 *.cmxa
 .cm
+
+
+# llvm files
+*.s
+*.ll
