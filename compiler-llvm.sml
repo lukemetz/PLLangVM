@@ -26,10 +26,9 @@ structure CompilerLLVM = struct
     | compileE (I.EAdd (e1,e2)) count = opify_2 e1 e2 "add" count 
     | compileE (I.ESub (e1, e2)) count = opify_2 e1 e2 "sub" count
     | compileE (I.EMul (e1, e2)) count = opify_2 e1 e2 "mul" count
+
   fun compileExpr expr = let
       (*val _ = print (String.concat ["[compiling ", I.stringOfExpr expr, "]\n"])*)
-
-
       val str = (case compileE expr 1 of
         (str, reg, count) => let
           val main_end = "call void @print (i32 %" ^ Int.toString reg ^ " )\nret void\n\n}"
