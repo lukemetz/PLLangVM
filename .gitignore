@@ -8,6 +8,7 @@
 *.cmxs
 *.cmxa
 .cm
+*.cmd
 
 
 # llvm files
