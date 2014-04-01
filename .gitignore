@@ -9,7 +9,7 @@
 *.cmxa
 .cm
 *.cmd
-
+*.exe
 
 # llvm files
 *.s
