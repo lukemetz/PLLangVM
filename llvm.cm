@@ -4,10 +4,10 @@ group is
   $/regexp-lib.cm
   $/basis.cm
 
-  parser.sml
-  int-representation.sml
-  stack-representation.sml
-  compiler.sml
-  compiler-llvm.sml
-  evaluator.sml
-  primitives.sml
+  src/parser.sml
+  src/int-representation.sml
+  src/stack-representation.sml
+  src/compiler.sml
+  src/compiler-llvm.sml
+  src/evaluator.sml
+  src/primitives.sml
