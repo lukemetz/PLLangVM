@@ -2,28 +2,24 @@ import sys, os
 
 def cleanBuild(output):
 	print "Cleaning previous build..."
+	if os.path.exists("build"):
+		for buildFile in os.listdir("build"):
+			os.remove(os.path.join("build",buildFile))
 	if os.path.exists(output):
-	    os.remove(output)
-	    print "Removed %s" % output
-	if os.path.exists(output+".ll"):
-	    os.remove(output + ".ll")
-	    print "Removed %s.ll" % output
-	if os.path.exists(output + ".s"):
-	    os.remove(output + ".s")
-	    print "Removed %s.s" % output
+		os.remove(output)
 
 def compileLinux(output):
 	os.system("rlwrap sml run.sml " + sys.argv[1])
 	print "Compiling with llvm..."
-	os.system("llc " + output + ".ll")
-	os.system("gcc " + output + ".s" + " -o " + output)
+	os.system("llc " + "build/" + output + ".ll -o build/" + output + ".s")
+	os.system("gcc " + "build/" + output + ".s" + " -o " + output)
 	print "Compile Success"
 
 def compileWin(output):
 	print "Reading IR to LLVM"
 	os.system("sml run.sml %s" % sys.argv[1])
 	print "Compiling with llvm..."
-	os.system("llc {0}.ll &&\"C:\mingw\\bin\\gcc.exe\" {0}.s -o {0}".format(output))
+	os.system("llc build\\{0}.ll -o build\\{0}.s &&\"C:\mingw\\bin\\gcc.exe\" build\{0}.s -o {0}".format(output))
 	print "Compile Success"
 
 def compileOSX(output):

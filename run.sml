@@ -38,6 +38,6 @@ in
 	"All good bro"
 end
 
-val result = write (base_file ^ ".ll") (toLLVM flat_file);
+val result = write ("build/" ^ base_file ^ ".ll") (toLLVM flat_file);
 
 val _ = OS.Process.exit(OS.Process.success)
