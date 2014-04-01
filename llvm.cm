@@ -10,5 +10,4 @@ group is
   compiler.sml
   compiler-llvm.sml
   evaluator.sml
-  shell.sml
   primitives.sml
