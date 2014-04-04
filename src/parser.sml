@@ -501,7 +501,6 @@ structure Parser =  struct
   fun parseDecl str = 
       (case parse_decl (lexString str)
 	of SOME (d,[]) => d
-	 | SOME (_,_) => parseError "leftover characters past parsed expression"
 	 | NONE => parseError "cannot parse expression")
       
 
