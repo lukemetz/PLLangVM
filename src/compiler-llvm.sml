@@ -15,20 +15,20 @@ structure CompilerLLVM = struct
   (* compile an expression into a sentence that produces the same value
      as the expression *)
 
-  and opify_2 e1 e2 name count = (case compileE e1 count of 
-      (e1_str, e1_reg, count) => (case compileE e2 count of 
-        (e2_str, e2_reg, count) => (e1_str ^ "\n" ^ e2_str ^ "\n" ^ 
+  and opify_2 e1 e2 name count = (case compileE e1 count of
+      (e1_str, e1_reg, count) => (case compileE e2 count of
+        (e2_str, e2_reg, count) => (e1_str ^ "\n" ^ e2_str ^ "\n" ^
           "    %" ^ Int.toString count ^ " = " ^ name ^ " i32 %" ^ Int.toString e1_reg ^ ", %" ^ Int.toString e2_reg,
            count, count + 1)))
 
 
   and compileE (I.EVal v) count = compileV v count
-    | compileE (I.EAdd (e1,e2)) count = opify_2 e1 e2 "add" count 
+    | compileE (I.EAdd (e1,e2)) count = opify_2 e1 e2 "add" count
     | compileE (I.ESub (e1, e2)) count = opify_2 e1 e2 "sub" count
     | compileE (I.EMul (e1, e2)) count = opify_2 e1 e2 "mul" count
-    | compileE (I.ECall (str, e::[])) count = case compileE e count of 
+    | compileE (I.ECall (str, e::[])) count = case compileE e count of
       (strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)
-  
+
   fun compileDecl sym (s::[]) expr = let
     val header = "define i32 @" ^ sym ^ "(i32 %a) {\n"
     val body = (case compileE expr 1 of
@@ -37,7 +37,6 @@ structure CompilerLLVM = struct
   in
     header ^ body ^ "\n" ^ footer
   end
-  
 
 
   fun compileExpr expr = let
