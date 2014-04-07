@@ -1,29 +1,28 @@
 structure Primitives = struct
 
-  structure I = InternalRepresentation
   structure S = StackRepresentation
 
 
-  exception PrimitiveError of string
-  fun primError s = raise PrimitiveError (s)
+  exception Primitive of string
+  fun primError s = raise Primitive (s)
 
   (* 
    *   Primitive operations
    *)
 
-  val trueVal = I.VInt 1
-  val falseVal = I.VInt 0
+  val trueVal = S.VInt 1
+  val falseVal = S.VInt 0
 
-  fun primAdd ((I.VInt i)::(I.VInt j)::stack) = (I.VInt (i+j))::stack
+  fun primAdd ((S.VInt i)::(S.VInt j)::stack) = (S.VInt (i+j))::stack
     | primAdd _ = primError "primAdd"
 
-  fun primMul ((I.VInt i)::(I.VInt j)::stack) = (I.VInt (i*j))::stack
+  fun primMul ((S.VInt i)::(S.VInt j)::stack) = (S.VInt (i*j))::stack
     | primMul _ = primError "primMul"
 
-  fun primSub ((I.VInt i)::(I.VInt j)::stack) = (I.VInt (i-j))::stack
+  fun primSub ((S.VInt i)::(S.VInt j)::stack) = (S.VInt (i-j))::stack
     | primSub _ = primError "primMul"
 
-  fun primMod ((I.VInt i)::(I.VInt j)::stack) = (I.VInt (i mod j))::stack
+  fun primMod ((S.VInt i)::(S.VInt j)::stack) = (S.VInt (i mod j))::stack
     | primMod _ = primError "primMul"
 
   fun primDup (v::stack) = v::v::stack
@@ -35,7 +34,7 @@ structure Primitives = struct
   fun primOver (v::w::stack) = w::v::w::stack
     | primOver _ = primError "primOver"
 
-  fun primPick ((I.VInt n)::stack) = let
+  fun primPick ((S.VInt n)::stack) = let
         fun loop 0 (v::_) = v
 	  | loop n (v::st) = loop (n-1) st
 	  | loop _ _ = primError "primPick - empty stack"
@@ -52,37 +51,59 @@ structure Primitives = struct
   fun primDrop (v::stack) = stack
     | primDrop _ = primError "primDrop"
 
-  fun primZeroEq ((I.VInt 0)::stack) = trueVal::stack
+  fun primClosure ((S.VInt n)::(S.VCode s)::stack) = let
+        fun loop 0 _ = []
+	  | loop n (v::st) = v::(loop (n-1) st)
+	  | loop _ _ = primError "primPack - empty stack"
+      in
+        (S.VClosure (s,Vector.fromList (loop n stack)))::stack
+      end
+    | primClosure _ = primError "primClosure"
+
+  fun primCode ((S.VClosure (s,_))::stack) = (S.VCode s)::stack
+    | primCode _ = primError "primCode"
+
+  fun primRef ((S.VInt n)::(S.VClosure (_, v))::stack) = (Vector.sub (v,n))::stack
+    | primRef _ = primError "primRef"
+
+  fun primZeroEq ((S.VInt 0)::stack) = trueVal::stack
     | primZeroEq (_::stack) = falseVal::stack
     | primZeroEq _ = primError "primZeroEq"
 
-  fun primEq ((I.VInt i)::(I.VInt j)::stack) = 
-        (if i=j then trueVal else falseVal)::stack
-    | primEq ((I.VList l1)::(I.VList l2)::stack) = 
-        (if l1=l2 then trueVal else falseVal)::stack
+  fun primEq (v1::v2::stack) = 
+        (if equal v1 v2 then trueVal else falseVal)::stack
     | primEq _ = primError "primEq"
 
-  fun primZeroGt ((I.VInt i)::stack) = if (i > 0) then trueVal::stack else falseVal::stack
+  and equal (S.VInt i) (S.VInt j) = i = j
+    | equal (S.VList l1) (S.VList l2) = equalLists l1 l2
+    | equal _ _ = false
+
+  and equalLists [] [] = true
+    | equalLists (v1::vs1) (v2::vs2) = 
+      (if equal v1 v2 then equalLists vs1 vs2 else false)
+    | equalLists _ _ = false
+
+  fun primZeroGt ((S.VInt i)::stack) = if (i > 0) then trueVal::stack else falseVal::stack
     | primZeroGt (_::stack) = falseVal::stack
     | primZeroGt _ = primError "primZeroEq"
 
-  fun primCons (v::(I.VList vs)::stack) = (I.VList (v::vs))::stack
+  fun primCons (v::(S.VList vs)::stack) = (S.VList (v::vs))::stack
     | primCons _ = primError "primCons"
 
-  fun primHead ((I.VList (v::vs))::stack) = v::stack
+  fun primHead ((S.VList (v::vs))::stack) = v::stack
     | primHead _ = primError "primHead"
 
-  fun primTail ((I.VList (v::vs))::stack) = (I.VList vs)::stack
+  fun primTail ((S.VList (v::vs))::stack) = (S.VList vs)::stack
     | primTail _ = primError "primTail"
 
-  fun primNilEq ((I.VList [])::stack) = trueVal::stack
+  fun primNilEq ((S.VList [])::stack) = trueVal::stack
     | primNilEq (_::stack) = falseVal::stack
     | primNilEq _ = primError "primNilEq"
 
   fun primShowStack stack = (print (" *** "^(S.stringOfStack stack 10)^"\n");
                              stack)
 
-  fun primNil stack = (I.VList [])::stack
+  fun primNil stack = (S.VList [])::stack
 
   fun primEmptyStack [] = [trueVal]
     | primEmptyStack stack = falseVal::stack

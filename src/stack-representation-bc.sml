@@ -1,11 +1,12 @@
 
 structure StackRepresentation = struct
 
+  type code_address = int
 
   datatype value = VInt of int
 		 | VList of value list 
-		 | VCode of sentence
-		 | VClosure of sentence * value Vector.vector
+		 | VCode of code_address
+		 | VClosure of code_address * value Vector.vector
 
   and sentence = SEmpty
 	       | SSequence of word * sentence
@@ -22,9 +23,9 @@ structure StackRepresentation = struct
     | stringOfValue (VList vs) = 
         "["^(String.concatWith "," (map stringOfValue vs))^"]"
     | stringOfValue (VCode s) = 
-        "<"^(stringOfSentence s)^">"
+        "<"^(Int.toString s)^">"
     | stringOfValue (VClosure (s,v)) = 
-      "<|"^(stringOfSentence s)^" | "
+      "<|"^(Int.toString s)^" | "
         ^(String.concatWith " " (Vector.foldr (fn (x,r) => 
 						  (stringOfValue x)::r) [] v))
         ^"|>"

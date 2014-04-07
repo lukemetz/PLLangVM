@@ -1,8 +1,6 @@
 structure CompilerLLVM = struct
 
   structure I = InternalRepresentation
-  structure S = StackRepresentation
-
 
   exception Compilation of string
 
@@ -23,11 +21,12 @@ structure CompilerLLVM = struct
 
 
   and compileE (I.EVal v) count = compileV v count
-    | compileE (I.EAdd (e1,e2)) count = opify_2 e1 e2 "add" count
-    | compileE (I.ESub (e1, e2)) count = opify_2 e1 e2 "sub" count
-    | compileE (I.EMul (e1, e2)) count = opify_2 e1 e2 "mul" count
-    | compileE (I.ECall (str, e::[])) count = case compileE e count of
-      (strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)
+    | compileE (I.EApp ((I.EIdent str), e)) count = case compileE e count of
+      (strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^
+      " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)
+    (*| compileE (I.EApp (I.EApp (I.EIdent oper, e1), e2)) count = opify_2 e1 e2 oper count*)
+    (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
+      (*(strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)*)
 
   fun compileDecl sym (s::[]) expr = let
     val header = "define i32 @" ^ sym ^ "(i32 %a) {\n"

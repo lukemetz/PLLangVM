@@ -1,11 +1,14 @@
 
-(* A naive version of the compiler *)
+(* A version of the compiler that directly calls the underlying
+   stack language primitives instead of going through their 
+   definitions in the execution environment *)
 
 
 structure Compiler = struct
 
   structure I = InternalRepresentation
   structure S = StackRepresentation
+  structure Pr = Primitives
 
 
   exception Compilation of string
@@ -36,12 +39,17 @@ structure Compiler = struct
 
   fun quoteS n = S.SQuote (n,S.SEmpty)
 
+
   fun definedS n = S.SSequence (S.WDefined n, S.SEmpty)
   fun intS i = S.SSequence (S.WInt i, S.SEmpty)
 
+  fun primitiveS n p = S.SSequence (S.WPrim (n,p), S.SEmpty)
 
   (* shortcuts *)
   val $$ = appendSs
+
+  fun repeatS st 0 = S.SEmpty
+    | repeatS st n = appendS st (repeatS st (n-1))
 
 
 
@@ -62,7 +70,8 @@ structure Compiler = struct
 
 
   (* the symbol table tells you for every identifier its position 
-       on the stack (the top of the stack is position 0)
+       on the stack (the top of the stack is position 0) via a path
+       into closures
      incrPositions takes a symbol table and increases all the positions
        by one *)
 
@@ -91,42 +100,42 @@ structure Compiler = struct
   end
 
 
-
   (* compile an expression into a sentence that produces the same value
      as the expression *)
+
 
 
   fun compilePrimitive2 n = let
     val name1 = freshName ":prim"
     val name2 = freshName ":prim"
   in
-      $$ [S.SDefine (name2, $$ [definedS "over",
-				definedS "over",
+      $$ [S.SDefine (name2, $$ [primitiveS "over" Pr.primOver,
+				primitiveS "over" Pr.primOver,
 				intS 0,
-				definedS "ref",
+				primitiveS "ref" Pr.primRef,
 				definedS n],
 		     S.SEmpty),  
-	  S.SDefine (name1, $$ [definedS "over",
+	  S.SDefine (name1, $$ [primitiveS "over" Pr.primOver,
 				quoteS name2,
 				intS 1,
-				definedS "closure",
-				definedS "swap",
-				definedS "drop"],
+				primitiveS "closure" Pr.primClosure,
+				primitiveS "swap" Pr.primSwap,
+				primitiveS "drop" Pr.primDrop],
 		     S.SEmpty),
 	  quoteS name1,
 	  intS 0,
-	  definedS "closure"]
+	  primitiveS "closure" Pr.primClosure]
   end
 
   fun compilePrimitive1 n = let
     val name1 = freshName ":prim"
   in
-    $$ [S.SDefine (name1, $$ [definedS "over",
+    $$ [S.SDefine (name1, $$ [primitiveS "over" Pr.primOver,
 			      definedS n],
 		   S.SEmpty),
 	quoteS name1,
 	intS 0,
-	definedS "closure"]
+	primitiveS "closure" Pr.primClosure]
   end
     
   fun compilePrimitive "+" symt = compilePrimitive2 "+"
@@ -139,8 +148,7 @@ structure Compiler = struct
     | compilePrimitive "tail" symt = compilePrimitive1 "tail"
     | compilePrimitive n _ = definedS n
 
-
-  fun compileE (I.EVal v) symt = compileV v
+  and compileE (I.EVal v) symt = compileV v
     | compileE (I.EFun (p,e)) symt = let
 	val name = freshName ":efun"
 	val env_size = 1 + maxPosition symt
@@ -150,7 +158,7 @@ structure Compiler = struct
 		       S.SEmpty),
 	    quoteS name,
 	    intS env_size,
-	    definedS "closure"]
+	    primitiveS "closure" Pr.primClosure]
       end
     | compileE (I.EIf (e1,e2,e3)) symt = 
         $$ [compileE e1 symt,
@@ -160,24 +168,24 @@ structure Compiler = struct
     | compileE (I.ELet (name,e1,e2)) symt = 
         $$ [compileE e1 symt,
 	    compileE e2 (addIdentifier name symt),
-	    definedS "swap",
-	    definedS "drop"]
+	    primitiveS "swap" Pr.primSwap,
+	    primitiveS "drop" Pr.primDrop]
     | compileE (I.ELetFun (n,p,e,body)) symt = let
 	val name = freshName ":letfun"
 	val env_size = 1 + maxPosition symt
       in
 	$$ [S.SDefine (name, 
-		       $$ [definedS "dup",
+		       $$ [primitiveS "dup" Pr.primDup,
 			   compileE e ((shift symt)@[(n,[1]),(p,[2])]),
-			   definedS "swap",
-			   definedS "drop"],
+			   primitiveS "swap" Pr.primSwap,
+			   primitiveS "drop" Pr.primDrop],
 		       S.SEmpty),
 	    quoteS name,
 	    intS env_size,
-	    definedS "closure",
+	    primitiveS "closure" Pr.primClosure,
 	    compileE body (addIdentifier n symt),
-	    definedS "swap",
-	    definedS "drop"]
+	    primitiveS "swap" Pr.primSwap,
+	    primitiveS "drop" Pr.primDrop]
       end
     | compileE (I.EIdent name) symt = let
         (* if name is not found, assume it's in the global environment *)
@@ -187,28 +195,38 @@ structure Compiler = struct
 				       else find name ss
 	fun ref [] = S.SEmpty
 	  | ref (n::p) = $$ [intS n,
-			     definedS "ref",
+			     primitiveS "ref" Pr.primRef,
 			     ref p]
       in
 	case find name symt
 	 of NONE => compilePrimitive name symt
-	  | SOME (0::p) => $$ [definedS "dup", ref p]
-	  | SOME (1::p) => $$ [definedS "over", ref p]
-	  | SOME (n::p) => $$ [intS n, definedS "pick", ref p]
-	  | _ => compileError ("cannot find "^name)
+	  | SOME (0::p) => $$ [primitiveS "dup" Pr.primDup, 
+			       ref p]
+	  | SOME (1::p) => $$ [primitiveS "over" Pr.primOver, 
+			       ref p]
+	  | SOME (n::p) => $$ [intS n, 
+			       primitiveS "pick" Pr.primPick, 
+			       ref p]
       end
+    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) symt = 
+        $$ [compileE e2 symt,
+	    compileE e1 (incrPositions symt),
+	    primitiveS "=" Pr.primEq]
+    | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) symt = 
+        $$ [compileE e2 symt,
+	    compileE e1 (incrPositions symt),
+	    primitiveS "-" Pr.primSub]
     | compileE (I.EApp (e1,e2)) symt = 
         $$ [compileE e2 symt,
 	    compileE e1 (incrPositions symt),
-	    definedS "dup",
-	    definedS "code",
-	    S.SCall ($$ [definedS "swap",
-			 definedS "drop",
-			 definedS "swap",
-			 definedS "drop"])]
+	    primitiveS "dup" Pr.primDup,
+	    primitiveS "code" Pr.primCode,
+	    S.SCall ($$ [primitiveS "swap" Pr.primSwap,
+			 primitiveS "drop" Pr.primDrop,
+			 primitiveS "swap" Pr.primSwap,
+			 primitiveS "drop" Pr.primDrop])]
     | compileE (I.EPrimCall1 e1) symt = compileError "EPrimCall1 during compilation"
     | compileE (I.EPrimCall2 e2) symt = compileError "EPrimCall2 during compilation"
-
 
   fun compileExpr expr = let
       val _ = print (String.concat ["[compiling ", I.stringOfExpr expr, "]\n"])

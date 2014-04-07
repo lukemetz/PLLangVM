@@ -8,6 +8,8 @@ group is
   src/int-representation.sml
   src/stack-representation.sml
   src/compiler.sml
-  src/compiler-llvm.sml
   src/evaluator.sml
+  src/shell.sml
   src/primitives.sml
+
+  src/compiler-llvm.sml
