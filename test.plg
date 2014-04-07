@@ -1,1 +1,2 @@
-def main x = print(1)
+def test x = print(1 + 1)
+def main x = test(1+3)
