@@ -24,10 +24,43 @@ structure CompilerLLVM = struct
     | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count = opify_2 e1 e2 "add" count
     | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count = opify_2 e1 e2 "sub" count
     | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count = opify_2 e1 e2 "mul" count
+    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count = let
+      val (str, reg, count) = (case compileE e1 count of
+        (e1_str, e1_reg, count) => (case compileE e2 count of
+          (e2_str, e2_reg, count) => (e1_str ^ "\n" ^ e2_str ^ "\n" ^
+            "    %" ^ Int.toString count ^ " = icmp eq i32 %" ^ Int.toString
+            e1_reg ^ ", %" ^ Int.toString e2_reg^"\n",
+             count, count + 1)))
+       in
+         (str, reg, count )
+       end
+    (*| compileE (I.EIf *)
 
-    | compileE (I.EApp ((I.EIdent str), e)) count = case compileE e count of
+    | compileE (I.EApp ((I.EIdent str), e)) count = (case compileE e count of
       (strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^
-      " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)
+      " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " ) \n"), count +
+      1, count + 2))
+
+    | compileE (I.EIf (e1, e2, e3)) count = (case (compileE e1 count)
+       of (e1_str, e1_reg, count) => (case (compileE e2 count)
+       of (e2_str, e2_reg, count) => (case (compileE e3 count)
+       of (e3_str, e3_reg, count) => let
+        val labelCount = Int.toString count
+        val initial = "    br i1 %" ^ (Int.toString e1_reg) ^ ", label %then"^labelCount^", label %else"^labelCount ^"\n"
+        val true_block = "then"^labelCount^":\n" ^ e2_str ^
+        "br label %ifcont"^labelCount^"\n"
+        val false_block = "else"^labelCount^":\n" ^ e3_str ^
+        "br label %ifcont"^labelCount^"\n"
+        val final = "ifcont"^labelCount^":\n"
+        val str = e1_str ^ initial ^ true_block ^ false_block ^final
+
+        val reg = count
+        val count = count
+      in
+        (str, reg, count)
+      end)))
+
+    | compileE _ count = compileError "not supported yet"
     (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
       (*(strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)*)
 
