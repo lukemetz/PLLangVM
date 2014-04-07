@@ -1,0 +1,11 @@
+Deliverable 1
+  Functions with 1 args that return
+  Ifs
+  Lets
+  Multi arg functions
+  recursion???
+
+Deliverable 2
+  First class functions....
+
+

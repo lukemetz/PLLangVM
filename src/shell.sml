@@ -3,14 +3,13 @@
 structure Shell = struct
 
   structure P = Parser
-  structure I = InternalRepresentation
-  structure S = StackRepresentation
   structure E = Evaluator
   structure C = Compiler
+  structure Pr = Primitives
 
 
 
-  fun prompt () = (print "expr";
+  fun prompt () = (print "func";
 		   print E.shellSuffix;
 		   print "> ";
 		   TextIO.inputLine (TextIO.stdIn))
@@ -29,7 +28,7 @@ structure Shell = struct
 	  val v = E.execute env e
 	  val rt = Timer.checkRealTimer t
 	  val _ = pr ["[Time: ", Time.toString rt, "]"]
-	  val _ = pr [I.stringOfValue v]
+	  val _ = pr [E.stringOfValue v]
 	in
 	  repl env
 	end
@@ -40,6 +39,7 @@ structure Shell = struct
 	  (process (P.parseDecl str)
 	   handle P.Parsing msg => (pr ["Parsing error:", msg]; repl env)
 		| E.Evaluation msg => (pr ["Evaluation error:", msg]; repl env)
+		| Pr.Primitive msg => (pr ["Evaluation error:", msg]; repl env)
 		| C.Compilation msg => (pr ["Compilation error:", msg]; repl env)
 		| IO.Io _ => (pr ["I/O error"]; repl env))
   in 

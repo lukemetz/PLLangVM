@@ -1,19 +1,21 @@
 
 
-(* EVALUATION VIA COMPILATION TO INTERPRETED STACK LANGUAGE *)
+(* EVALUATION VIA COMPILATION TO INTERPRETED STACK LANGUAGES *)
+
+
 
 structure Evaluator = struct
 
   structure I = InternalRepresentation
   structure S = StackRepresentation
   structure C = Compiler
-  structure P = Primitives
+  structure Pr = Primitives
+
 
 
   exception Evaluation of string
 
   fun evalError msg = raise Evaluation msg
-
 
 
 			 
@@ -28,7 +30,7 @@ structure Evaluator = struct
 
   fun execute' env S.SEmpty stack = stack
     | execute' env (S.SSequence (S.WInt i,ws)) stack = 
-        execute' env ws ((I.VInt i)::stack)
+        execute' env ws ((S.VInt i)::stack)
     | execute' env (S.SSequence (S.WPrim (_,prim), ws)) stack = 
         execute' env ws (prim stack)
     | execute' env (S.SSequence (S.WDefined w, ws)) stack = let
@@ -38,19 +40,24 @@ structure Evaluator = struct
       end
     | execute' env (S.SIf (trueS,falseS,thenS)) (v::stack) = let
         val stack = execute' env (case v 
-			      of I.VInt 0 => falseS
+			      of S.VInt 0 => falseS
 			       | _ => trueS) stack
       in
 	execute' env thenS stack
       end
-    | execute' env (S.SWhile (whileS,thenS)) stack  = let
-	  fun loop ((I.VInt 0)::stack) = stack
-	    | loop (_::stack) = loop (execute' env whileS stack)
-	    | loop _ = evalError "stack empty on while"
+    | execute' env (S.SQuote (w,ws)) stack = let
+        val stack = (S.VCode (lookup w env))::stack
       in
-	  execute' env thenS (loop stack)
+        execute' env ws stack
       end
-    | execute' _ _ _ = evalError "cannot execute"
+    | execute' env (S.SCall ws) ((S.VCode st)::stack) = let
+        val stack = execute' env st stack
+      in
+        execute' env ws stack
+      end
+    | execute' env (S.SDefine (w,wsdef,st)) stack = 
+        execute' ((w,wsdef)::env) st stack
+    | execute' _ _ _ = evalError "cannot execute sentence"
 
 
 
@@ -66,39 +73,42 @@ structure Evaluator = struct
 
 
 
-
   (* 
    *   Initial environment 
    *)
 
   val initialEnv = let
     fun process (n,prim) = (n,S.SSequence (S.WPrim (n,prim),S.SEmpty))
-    val primitives = [ ("+", P.primAdd),
-		       ("*", P.primMul),
- 		       ("-", P.primSub),
-		       ("mod", P.primMod),
-		       ("dup", P.primDup),
-		       ("swap", P.primSwap),
-		       ("over", P.primOver),
-		       ("rot", P.primRot),
-		       ("pick", P.primPick),
-		       ("=", P.primEq),
-		       ("0=", P.primZeroEq),
-		       ("0>", P.primZeroGt),
-		       ("drop", P.primDrop),
-		       ("cons", P.primCons),
-		       ("head", P.primHead),
-		       ("tail", P.primTail),
-		       ("nil=", P.primNilEq),
-		       ("nil", P.primNil),
-		       ("empty-stack", P.primEmptyStack),
-		       ("show-stack", P.primShowStack)
-		     ] 
   in
-      map process primitives
+    map process 
+       [("+", Pr.primAdd),
+        ("*", Pr.primMul),
+ 	("-", Pr.primSub),
+ 	("=", Pr.primEq),
+	("mod", Pr.primMod),
+        ("dup", Pr.primDup),
+	("swap", Pr.primSwap),
+	("over", Pr.primOver),
+	("rot", Pr.primRot),
+	("pick", Pr.primPick),
+	("ref", Pr.primRef),
+	("closure", Pr.primClosure),
+	("code", Pr.primCode),
+	("0=", Pr.primZeroEq),
+	("0>", Pr.primZeroGt),
+	("drop", Pr.primDrop),
+	("cons", Pr.primCons),
+	("head", Pr.primHead),
+	("tail", Pr.primTail),
+	("nil=", Pr.primNilEq),
+	("nil", Pr.primNil),
+	("empty-stack", Pr.primEmptyStack),
+	("show-stack", Pr.primShowStack)
+      ]
   end
 
   val shellSuffix = ""
+
 
   fun addDefinition env name params body = let
     val sent = C.compileDef name params body
@@ -106,9 +116,8 @@ structure Evaluator = struct
     (name,sent)::env
   end
 
-
   fun info env = (app (fn (s,_) => (print (" "^s^"\n"))) env)
 
-
+  fun stringOfValue v = S.stringOfValue v  
 				 
 end
