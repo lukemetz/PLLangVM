@@ -38,7 +38,7 @@ structure CompilerLLVM = struct
     | compileE (I.EApp ((I.EIdent str), e)) count = (case compileE e count of
       (strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^
       " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " ) \n"), count +
-      1, count + 2))
+      1, count + 1))
 
     | compileE (I.EIf (e1, e2, e3)) count = (case (compileE e1 count)
        of (e1_str, e1_reg, count) => (case (compileE e2 count)
@@ -51,7 +51,7 @@ structure CompilerLLVM = struct
         val false_block = "else"^labelCount^":\n" ^ e3_str ^
         "br label %ifcont"^labelCount^"\n"
         val final = "ifcont"^labelCount^":\n"
-        val str = e1_str ^ initial ^ true_block ^ false_block ^final
+        val str = e1_str ^ initial ^ true_block ^ false_block ^ final
 
         val reg = count
         val count = count
