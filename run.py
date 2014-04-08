@@ -11,7 +11,7 @@ def cleanBuild(output):
 def compileLinux(output):
 	os.system("rlwrap sml run.sml " + sys.argv[1])
 	print "Compiling with llvm..."
-	if not os.path.exists("llc " + "build/" + output + ".ll -o build/" + output + ".s"):
+	if not os.path.exists("build/" + output + ".ll"):
 		print "COMPILE ERROR"
 		return
 	os.system("llc " + "build/" + output + ".ll -o build/" + output + ".s")
@@ -21,7 +21,7 @@ def compileLinux(output):
 def compileWin(output):
 	print "Reading IR to LLVM"
 	os.system("sml run.sml %s" % sys.argv[1])
-	if not os.path.exists("llc build\\{0}.ll -o build\\{0}.s &&\"C:\mingw\\bin\\gcc.exe\" build\{0}.s -o {0}".format(output)):
+	if not os.path.exists("build\\{0}.ll".format(output)):
 		print "COMPILE ERROR"
 		return
 	print "Compiling with llvm..."
