@@ -30,6 +30,7 @@ structure CompilerLLVM = struct
          (str, reg, count )
        end
   and compileE (I.EVal v) count = compileV v count
+    | compileE (I.EIdent str) count = (("    %" ^ (Int.toString count) ^ "= add i32 0, %" ^ str), count, count + 1)
     | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count = opify_2 e1 e2 "add" count
     | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count = opify_2 e1 e2 "sub" count
     | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count = opify_2 e1 e2 "mul" count
@@ -41,7 +42,7 @@ structure CompilerLLVM = struct
 
     | compileE (I.EApp ((I.EIdent str), e)) count = (case compileE e count of
       (strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^
-      " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " ) \n"), count +
+      " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (count - 1))  ^ " ) \n"), count +
       1, count + 1))
 
     | compileE (I.EIf (e1, e2, e3)) count = (case (compileE e1 count)
@@ -67,13 +68,12 @@ structure CompilerLLVM = struct
     (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
       (*(strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)*)
 
-  fun compileDecl sym (s::[]) expr = let
-    val header = "define i32 @" ^ sym ^ "(i32 %a) {\n"
+  fun compileDecl sym (ss) expr = let
+    val header = (if sym = "main" then "define void @" else "define i32 @") ^ sym ^ "(" ^ (List.foldr (fn (x,y) => " i32 %" ^ x ^ y) "" ss)^ ")" ^ "{\n"
     val body = (case compileE expr 1 of
-      (str, reg, count) => str)
-    val footer = "    ret i32 0\n}"
+      (str, reg, count) => str ^ "\n    ret "^ (if sym = "main" then "void" else ("i32 %" ^ (Int.toString (count -1 )))) ^ "\n}\n")
   in
-    header ^ body ^ "\n" ^ footer
+    header ^ body
   end
 
   fun compileExpr expr = let
