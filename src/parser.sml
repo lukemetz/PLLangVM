@@ -57,6 +57,8 @@ structure Parser =  struct
                  | T_PLUS
                  | T_MINUS
                  | T_TIMES
+                 | T_GREATER
+                 | T_LESS
 		 | T_BACKSLASH
  		 | T_RARROW
                  | T_COMMA
@@ -77,6 +79,8 @@ structure Parser =  struct
     | stringOfToken T_LPAREN = "T_LPAREN"
     | stringOfToken T_RPAREN = "T_RPAREN"
     | stringOfToken T_PLUS = "T_PLUS"
+    | stringOfToken T_GREATER = "T_GREATER"
+    | stringOfToken T_LESS = "T_LESS"
     | stringOfToken T_MINUS = "T_MINUS"
     | stringOfToken T_TIMES = "T_TIMES"
     | stringOfToken T_BACKSLASH = "T_BACKSLASH"
@@ -112,7 +116,8 @@ structure Parser =  struct
   fun produceTimes _ = SOME (T_TIMES)
   fun produceComma _ = SOME (T_COMMA)
   fun produceDColon _ = SOME (T_DCOLON)
-
+  fun produceLess _ = SOME (T_LESS)
+  fun produceGreater _ = SOME (T_GREATER)
   fun produceBackslash _ = SOME (T_BACKSLASH)
   fun produceRArrow _ = SOME (T_RARROW)
                        
@@ -122,6 +127,8 @@ structure Parser =  struct
     map convert [("( |\\n|\\t)+",         whitespace),
                  ("=",                    produceEqual),
                  ("\\+",                  producePlus),
+                 ("\\>",                  produceGreater),
+                 ("\\<",                  produceLess),
 		 ("->",                   produceRArrow),
                  ("-",                    produceMinus),
                  ("::",                   produceDColon),
@@ -246,6 +253,12 @@ structure Parser =  struct
   fun expect_PLUS (T_PLUS::ts) = SOME ts
     | expect_PLUS _ = NONE
 
+  fun expect_GREATER (T_GREATER::ts) = SOME ts
+    | expect_GREATER _ = NONE
+
+  fun expect_LESS (T_LESS::ts) = SOME ts
+    | expect_LESS _ = NONE
+
   fun expect_MINUS (T_MINUS::ts) = SOME ts
     | expect_MINUS _ = NONE
 
@@ -276,19 +289,20 @@ structure Parser =  struct
 
 
   fun parse_expr ts = let
-    fun expr_equal ts = 
+    fun expr_equal f oper ts= 
 	(case parse_eterm ts
 	  of NONE => NONE
 	   | SOME (e1,ts) => 
-             (case expect_EQUAL ts
+             (case f ts
                of NONE => NONE
 		| SOME ts => 
 		  (case parse_eterm ts
                     of NONE => NONE
-                     | SOME (e2,ts) => SOME (I.EApp (I.EApp (I.EIdent "=", e1), e2),ts))))
+                     | SOME (e2,ts) => SOME (I.EApp (I.EApp (I.EIdent oper, e1), e2),ts))))
     and expr_eterm ts = parse_eterm ts
+    and expr_greater ts = ()
   in
-      choose [expr_equal, expr_eterm] ts
+      choose [(expr_equal (expect_EQUAL) "="),(expr_equal (expect_GREATER) ">"),(expr_equal (expect_LESS) "<"), expr_eterm] ts
   end
 
 

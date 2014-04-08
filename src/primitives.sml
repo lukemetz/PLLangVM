@@ -74,10 +74,24 @@ structure Primitives = struct
         (if equal v1 v2 then trueVal else falseVal)::stack
     | primEq _ = primError "primEq"
 
+  and primGreater (v1::v2::stack) = 
+        (if compareG v1 v2 then trueVal else falseVal)::stack
+    | primGreater _ = primError "primGreater"
+
+  and primLess (v1::v2::stack) = 
+        (if compareL v1 v2 then trueVal else falseVal)::stack
+    | primLess _ = primError "primLess"
+
   and equal (S.VInt i) (S.VInt j) = i = j
     | equal (S.VList l1) (S.VList l2) = equalLists l1 l2
     | equal _ _ = false
 
+  and compareL (S.VInt i) (S.VInt j) = i < j
+    | compareL _ _ = false
+
+  and compareG (S.VInt i) (S.VInt j) = i > j
+    | compareG _ _ = false
+    
   and equalLists [] [] = true
     | equalLists (v1::vs1) (v2::vs2) = 
       (if equal v1 v2 then equalLists vs1 vs2 else false)

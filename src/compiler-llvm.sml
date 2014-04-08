@@ -19,20 +19,24 @@ structure CompilerLLVM = struct
           "    %" ^ Int.toString count ^ " = " ^ name ^ " i32 %" ^ Int.toString e1_reg ^ ", %" ^ Int.toString e2_reg,
            count, count + 1)))
 
-  and compileE (I.EVal v) count = compileV v count
-    | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count = opify_2 e1 e2 "add" count
-    | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count = opify_2 e1 e2 "sub" count
-    | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count = opify_2 e1 e2 "mul" count
-    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count = let
+  and condition e1 e2 count cond = let
       val (str, reg, count) = (case compileE e1 count of
         (e1_str, e1_reg, count) => (case compileE e2 count of
           (e2_str, e2_reg, count) => (e1_str ^ "\n" ^ e2_str ^ "\n" ^
-            "    %" ^ Int.toString count ^ " = icmp eq i32 %" ^ Int.toString
+            "    %" ^ Int.toString count ^ " = icmp "^ cond ^" i32 %" ^ Int.toString
             e1_reg ^ ", %" ^ Int.toString e2_reg^"\n",
              count, count + 1)))
        in
          (str, reg, count )
        end
+  and compileE (I.EVal v) count = compileV v count
+    | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count = opify_2 e1 e2 "add" count
+    | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count = opify_2 e1 e2 "sub" count
+    | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count = opify_2 e1 e2 "mul" count
+    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count = condition e1 e2 count "eq"
+    | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count = condition e1 e2 count "sgt"
+    | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count = condition e1 e2 count "slt"
+
     (*| compileE (I.EIf *)
 
     | compileE (I.EApp ((I.EIdent str), e)) count = (case compileE e count of
