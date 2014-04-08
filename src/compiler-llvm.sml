@@ -47,9 +47,9 @@ structure CompilerLLVM = struct
         val labelCount = Int.toString count
         val initial = "    br i1 %" ^ (Int.toString e1_reg) ^ ", label %then"^labelCount^", label %else"^labelCount ^"\n"
         val true_block = "then"^labelCount^":\n" ^ e2_str ^
-        "br label %ifcont"^labelCount^"\n"
+        "    br label %ifcont"^labelCount^"\n"
         val false_block = "else"^labelCount^":\n" ^ e3_str ^
-        "br label %ifcont"^labelCount^"\n"
+        "    br label %ifcont"^labelCount^"\n"
         val final = "ifcont"^labelCount^":\n"
         val str = e1_str ^ initial ^ true_block ^ false_block ^ final
 
