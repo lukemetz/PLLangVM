@@ -1,2 +1,2 @@
 def main x = if (2 > 1) then test(6) else print (2)
-def test x = print(x)
+def test (x y) = print(x)

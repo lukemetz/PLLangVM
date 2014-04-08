@@ -15,7 +15,7 @@ fun toLLVM ts = (case (P.parse_decl ts) of
                     in
     (compile decl) ^ "\n" ^ header ^"\n\n" ^ boiler
                     end
-| SOME (decl, ts) => (compile decl) ^ "\n" ^  (toLLVM ts)
+| SOME (decl, ts) => (case (P.parse_decl ts) of NONE => let val _ = "Parse Error" in OS.Process.exit(OS.Process.success) end| _ => "") ^ (compile decl) ^ "\n" ^  (toLLVM ts)
 | NONE => ""
 )
 
