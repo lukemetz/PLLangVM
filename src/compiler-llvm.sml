@@ -7,7 +7,7 @@ structure CompilerLLVM = struct
   fun compileError msg = raise Compilation msg
  (* compile a value into a sentence that produces that value *)
 
-  fun compileV (I.VInt i) count = ("    %" ^ Int.toString count ^ " = add i32 0, " ^ Int.toString i, count, count + 1)
+  fun compileV (I.VInt i) count = ("    %" ^ Int.toString count ^ " = add i32 0, " ^ Int.toString i ^ "\n", count, count + 1)
     | compileV _ _ = compileError "Only ints supported"
 
   (* compile an expression into a sentence that produces the same value
@@ -16,7 +16,8 @@ structure CompilerLLVM = struct
   and opify_2 e1 e2 name count = (case compileE e1 count of
       (e1_str, e1_reg, count) => (case compileE e2 count of
         (e2_str, e2_reg, count) => (e1_str ^ "\n" ^ e2_str ^ "\n" ^
-          "    %" ^ Int.toString count ^ " = " ^ name ^ " i32 %" ^ Int.toString e1_reg ^ ", %" ^ Int.toString e2_reg,
+          "    %" ^ Int.toString count ^ " = " ^ name ^ " i32 %" ^ Int.toString
+          e1_reg ^ ", %" ^ Int.toString e2_reg ^ "\n",
            count, count + 1)))
 
   and condition e1 e2 count cond = let
@@ -24,22 +25,19 @@ structure CompilerLLVM = struct
         (e1_str, e1_reg, count) => (case compileE e2 count of
           (e2_str, e2_reg, count) => (e1_str ^ "\n" ^ e2_str ^ "\n" ^
             "    %" ^ Int.toString count ^ " = icmp "^ cond ^" i32 %" ^ Int.toString
-            e1_reg ^ ", %" ^ Int.toString e2_reg^"\n",
+            e1_reg ^ ", %" ^ Int.toString e2_reg ^ "\n",
              count, count + 1)))
        in
          (str, reg, count )
        end
   and compileE (I.EVal v) count = compileV v count
-    | compileE (I.EIdent str) count = (("    %" ^ (Int.toString count) ^ "= add i32 0, %" ^ str), count, count + 1)
+    | compileE (I.EIdent str) count = (("    %" ^ (Int.toString count) ^ "= add i32 0, %" ^ str ^ "\n"), count, count + 1)
     | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count = opify_2 e1 e2 "add" count
     | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count = opify_2 e1 e2 "sub" count
     | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count = opify_2 e1 e2 "mul" count
     | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count = condition e1 e2 count "eq"
     | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count = condition e1 e2 count "sgt"
     | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count = condition e1 e2 count "slt"
-
-    (*| compileE (I.EIf *)
-
     | compileE (I.EApp ((I.EIdent str), e)) count = (case compileE e count of
       (strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^
       " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (count - 1))  ^ " ) \n"), count +
@@ -63,6 +61,14 @@ structure CompilerLLVM = struct
       in
         (str, reg, count)
       end)))
+    | compileE (I.ELet (sym1, e1, e2)) count = (case (compileE e1 count)
+       of (e1_str, e1_reg, count) => (case (compileE e2 count)
+       of (e2_str, e2_reg, count) => let
+           val rebinding_var ="    %" ^ sym1^" = add i32 0, %" ^ Int.toString e1_reg ^"\n"
+         in
+           (e1_str ^ rebinding_var ^ e2_str, e2_reg, count)
+         end
+           ))
 
     | compileE _ count = compileError "not supported yet"
     (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
