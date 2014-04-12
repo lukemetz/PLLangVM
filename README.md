@@ -35,22 +35,22 @@ Programming langauge implementation and design final project with llvm using cod
 <b>Project structure:</b><br>
 <ul>
 <li>build</li>
-llvm and c compilation outputs<br>
+ llvm and c compilation outputs<br>
 <li>src</li>
-SML back-end for our language<br>
+ SML back-end for our language<br>
 <li>run.py</li> 
-Python script that runs the compilation commands<br>
+ Python script that runs the compilation commands<br>
 <li>run.sml</li>
-SML script that handles the input/output of the .plg script. <br>
+ SML script that handles the input/output of the .plg script. <br>
 <li>test.plg</li>
-Test code written in our plang language. <br>
+ Test code written in our plang language. <br>
 
 <b>What we have implemented:</b>
- Currently, we have basic mathematic operations implemented.<br> 
- We have a naive implementation of Let, singl argument function declarations and function calling, and conditionals.<br>
+Currently, we have basic mathematic operations implemented.<br> 
+We have a naive implementation of Let, singl argument function declarations and function calling, and conditionals.<br>
  <br>
- Unfortunately as of now, we are only handling 32-bit integer types. 
+Unfortunately as of now, we are only handling 32-bit integer types. 
 
 <b>Next Steps:</b>
- Implement environments and closures using use of structures and pointers. <br>
- Implement data types using structures (hopefully, unions) with encoded type information. <br>
+Implement environments and closures using use of structures and pointers. <br>
+Implement data types using structures (hopefully, unions) with encoded type information. <br>
