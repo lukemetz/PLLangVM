@@ -31,7 +31,6 @@ For OSX users, <br>
 The Project
 ==========================
 Programming langauge implementation and design final project with llvm using code from previous lectures. 
-
 <b>Project structure:</b><br>
 <ul>
 <li>build</li>
@@ -46,12 +45,12 @@ Programming langauge implementation and design final project with llvm using cod
  Test code written in our plang language. <br>
  </ul>
 
-<b>What we have implemented:</b>
+<b>What we have implemented:</b><br>
 Currently, we have basic mathematic operations implemented.<br> 
 We have a naive implementation of Let, singl argument function declarations and function calling, and conditionals.<br>
  <br>
 Unfortunately as of now, we are only handling 32-bit integer types. 
 
-<b>Next Steps:</b>
+<b>Next Steps:</b><br>
 Implement environments and closures using use of structures and pointers. <br>
 Implement data types using structures (hopefully, unions) with encoded type information. <br>
