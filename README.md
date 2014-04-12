@@ -16,7 +16,7 @@ Dependencies<br>
 (1) LLVM  (llvc)<br>
 (2) Python (os, sys)<br>
 
-<b><i>Compiling</i></b>
+<b><i>Compiling</i></b><br>
 Code that will be compiled is called test.plg; however, it is simply an argument passed into the command for compilation. 
 
 For Windows users, (plang.cmd)<br>
