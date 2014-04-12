@@ -52,5 +52,5 @@ We have a naive implementation of Let, singl argument function declarations and 
 Unfortunately as of now, we are only handling 32-bit integer types. 
 
 <b>Next Steps:</b><br>
-Implement environments and closures using use of structures and pointers. <br>
+Implement environments and closures using structures and pointers. <br>
 Implement data types using structures (hopefully, unions) with encoded type information. <br>
