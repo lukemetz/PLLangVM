@@ -44,6 +44,7 @@ Programming langauge implementation and design final project with llvm using cod
  SML script that handles the input/output of the .plg script. <br>
 <li>test.plg</li>
  Test code written in our plang language. <br>
+ </ul>
 
 <b>What we have implemented:</b>
 Currently, we have basic mathematic operations implemented.<br> 
