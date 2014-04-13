@@ -2,6 +2,8 @@ import sys, os
 
 def cleanBuild(output):
 	print "Cleaning previous build..."
+	if not os.path.exists("build"):
+            os.mkdir("build")
 	if os.path.exists("build"):
 		for buildFile in os.listdir("build"):
 			os.remove(os.path.join("build",buildFile))
