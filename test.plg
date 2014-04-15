@@ -1,1 +1,1 @@
-def main y = let x = 3 in print(x+x)
+def main y = print(2 + 4)

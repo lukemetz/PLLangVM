@@ -7,7 +7,14 @@ structure CompilerLLVM = struct
   fun compileError msg = raise Compilation msg
  (* compile a value into a sentence that produces that value *)
 
-  fun compileV (I.VInt i) count = ("    %" ^ Int.toString count ^ " = add i32 0, " ^ Int.toString i ^ "\n", count, count + 1)
+  fun make_lines xs = List.foldr (fn (x,y) => x ^ "\n" ^ y)  "" xs
+  fun count_reg count = "%"^Int.toString count
+  fun set_count_reg count = "    " ^ count_reg count ^" = "
+  fun compileV (I.VInt i) count = let
+    val str = "    " ^ count_reg count ^ " = call %value @wrap_i32(i32 " ^ Int.toString i ^ ")"
+  in
+    (str, count, count+1)
+  end
     | compileV _ _ = compileError "Only ints supported"
 
   (* compile an expression into a sentence that produces the same value
@@ -15,10 +22,11 @@ structure CompilerLLVM = struct
 
   and opify_2 e1 e2 name count = (case compileE e1 count of
       (e1_str, e1_reg, count) => (case compileE e2 count of
-        (e2_str, e2_reg, count) => (e1_str ^ "\n" ^ e2_str ^ "\n" ^
-          "    %" ^ Int.toString count ^ " = " ^ name ^ " i32 %" ^ Int.toString
-          e1_reg ^ ", %" ^ Int.toString e2_reg ^ "\n",
-           count, count + 1)))
+        (e2_str, e2_reg, count) => let
+          val add_str = "    " ^ count_reg count ^ " = call %value @" ^ name ^"(%value " ^ count_reg e1_reg ^ ", %value " ^ count_reg e2_reg ^ ")"
+           in
+          (make_lines [e1_str, e2_str, add_str],  count, count + 1)
+        end))
 
   and condition e1 e2 count cond = let
       val (str, reg, count) = (case compileE e1 count of
@@ -40,7 +48,7 @@ structure CompilerLLVM = struct
     | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count = condition e1 e2 count "slt"
     | compileE (I.EApp ((I.EIdent str), e)) count = (case compileE e count of
       (strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^
-      " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (count - 1))  ^ " ) \n"), count +
+      " = call %value @" ^ str ^ " (%value %" ^ (Int.toString (count - 1))  ^ " ) \n"), count +
       1, count + 1))
 
     | compileE (I.EIf (e1, e2, e3)) count = (case (compileE e1 count)

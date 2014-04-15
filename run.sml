@@ -11,9 +11,9 @@ fun compile (P.DExpr expr) = C.compileExpr expr
 fun toLLVM ts = (case (P.parse_decl ts) of
 	SOME (decl, []) => let
 	  val header = ";Compiled by PLLangVM"
-    val boiler = "@printFmt = private unnamed_addr constant [4 x i8] c\"%d\\0A\\00\", align 1\ndefine i32 @print(i32 %a) {\n  entry:\n    %0 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* @printFmt, i32 0, i32 0), i32 %a)\n    ret i32 0\n}\ndeclare i32 @printf(i8*, ...)\n"
+    val type_decl = "%value = type {i8, i32*}"
                     in
-    (compile decl) ^ "\n" ^ header ^"\n\n" ^ boiler
+    type_decl ^ "\n" ^ (compile decl) ^ "\n" ^ header ^"\n\n"
                     end
 | SOME (decl, ts) => (compile decl) ^ "\n" ^  (toLLVM ts)
 | NONE => ""
@@ -50,6 +50,8 @@ in
 	"All good bro"
 end
 
-val result = write ("build/" ^ base_file ^ ".ll") (toLLVM (P.lexString flat_file));
+fun read_file filename = List.foldr (fn (x,y) => x ^ y) "" (readlist filename)
+val flat_boiler = read_file "src/boiler.ll"
+val result = write ("build/" ^ base_file ^ ".ll") (toLLVM (P.lexString flat_file) ^ "\n" ^ flat_boiler);
 
 val _ = OS.Process.exit(OS.Process.success)
