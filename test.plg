@@ -1,2 +1,2 @@
-def test x = 10
-def main xcf = (let myfunc x = (1+3) in print(myfunc(test(1))) )
+def test xdd = xdd
+def main xcf = (let myfunc x = (x+3) in print(myfunc(test(100))) )

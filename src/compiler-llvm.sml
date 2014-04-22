@@ -100,16 +100,18 @@ structure CompilerLLVM = struct
 
 
     | compileE (I.EFun (arg, e1)) count sym_env cstack =
-    (case (compileE e1 count sym_env cstack)
-       of (e1_reg, count, cstack) => let
+    (*(case (compileE e1 count sym_env cstack)*)
+       (*of (e1_reg, count, cstack) =>*)
+       let
          val func_name = "func_" ^ Int.toString count
+          val _ = print ("&&&&&&&&&&======"^arg^"\n\n")
          val call = set_count_reg count ^
             "call %value @wrap_func(%value(%value)* @" ^ func_name ^ ")"
          val declare = case compileDecl func_name [arg] e1 sym_env of 
           (body, sym_env) => body
           in
             ( "@" ^ func_name, count+1, (declare::cstack)@[call])
-          end)
+          end
 
 
 
@@ -121,9 +123,10 @@ structure CompilerLLVM = struct
     val header = (if sym = "main" then "define void @" else "define %value @") ^
     sym ^ "(%value %" ^ argname ^ ")" ^ "{"
     val sym_env = (sym, "@"^sym)::sym_env
+    val _ = print ("&&&&&&&&&&"^argname^"\n\n")
     val body = (case compileE expr 1 ((argname, "%" ^ argname)::sym_env) [header] of
       (reg, count, cstack) => (make_lines cstack) ^ "\n    ret "^ (if sym = "main" then "void" else
-        ("%value " ^ count_reg (count -1 ))) ^ "\n}\n")
+        ("%value " ^ reg)) ^ "\n}\n")
   in
     (body, sym_env)
   end
