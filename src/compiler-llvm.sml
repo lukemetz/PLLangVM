@@ -13,56 +13,50 @@ structure CompilerLLVM = struct
 	  sent
 	else lookup name env
 
-  fun make_lines xs = List.foldr (fn (x,y) => (*let
-    val xx = if x = "" then "" else x ^"\n"
-    val yy = if y = "" then "" else y)
-    in xx ^ yy end*) if x = "" then x ^ y else "\n" ^ x ^ y) "" xs
+  fun make_lines xs = List.foldr (fn (x,y) => 
+    if x = "" then x ^ y else "\n" ^ x ^ y) "" xs
   fun count_reg count = "%"^Int.toString count
   fun set_count_reg count = "    " ^ count_reg count ^" = "
-  fun compileV (I.VInt i) count = let
+  fun compileV (I.VInt i) count cstack = let
     val str = "    " ^ count_reg count ^ " = call %value @wrap_i32(i32 " ^ Int.toString i ^ ")"
   in
-    (str, count_reg count, count+1)
+    (count_reg count, count+1, cstack@[str])
   end
-    | compileV _ _ = compileError "Only ints supported"
+    | compileV _ _ _= compileError "Only ints supported"
 
   (* compile an expression into a sentence that produces the same value
      as the expression *)
 
-  and opify_2 e1 e2 name count sym_env= (case compileE e1 count sym_env of
-      (e1_str, e1_reg, count) => (case compileE e2 count sym_env of
-        (e2_str, e2_reg, count) => let
+  and opify_2 e1 e2 name count sym_env cstack = (case compileE e1 count sym_env cstack of
+      (e1_reg, count, cstack) => (case compileE e2 count sym_env cstack of
+        (e2_reg, count, cstack) => let
           val add_str = "    " ^ count_reg count ^ " = call %value @" ^ name ^"(%value " ^ e1_reg ^ ", %value " ^ e2_reg ^ ")"
            in
-          (make_lines [e1_str, e2_str, add_str],  count_reg count, count + 1)
+          (count_reg count, count + 1, cstack@[add_str])
         end))
 
-  and condition e1 e2 count sym_env cond = let
-      val (str, reg, count) = (case compileE e1 count sym_env of
-        (e1_str, e1_reg, count) => (case compileE e2 count sym_env of
-          (e2_str, e2_reg, count) => (make_lines [e1_str, e2_str, 
-            "    %" ^ Int.toString count ^ " = icmp "^ cond ^" %value" ^
-            e1_reg ^ ", " ^ e2_reg ],
-             count_reg count, count + 1)))
-       in
-         (str, reg, count )
-       end
-  and compileE (I.EVal v) count (sym_env : ((string * string) list)) = compileV v count
-    | compileE (I.EIdent str) count sym_env = ("", (lookup str sym_env), count)
-    | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count sym_env = opify_2 e1 e2 "add" count sym_env
-    | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count sym_env = opify_2 e1 e2 "sub" count sym_env
-    | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count sym_env = opify_2 e1 e2 "mul" count sym_env
-    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count sym_env = condition e1 e2 count sym_env "eq"
-    | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count sym_env = condition e1 e2 count sym_env "sgt"
-    | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env = condition e1 e2 count sym_env "slt"
-    | compileE (I.EApp ((I.EIdent str), e)) count sym_env= (case compileE e count sym_env of
-      (strE, reg, count) => let 
-        val str = make_lines [strE, set_count_reg count ^
-      " call %value @" ^ str ^ " (%value " ^ count_reg (count - 1)  ^ ")"]
-        in
-        (str, count_reg (count +1), count + 1)
-                            end)
+  and condition e1 e2 count sym_env cstack cond =
+      (case compileE e1 count sym_env cstack of
+        (e1_reg, count, cstack) => (case compileE e2 count sym_env cstack of
+          (e2_reg, count, cstack) => 
+            (count_reg count, count + 1, cstack@["    %" ^ Int.toString count ^ " = icmp "^ cond ^" %value" ^ e1_reg ^ ", " ^ e2_reg ])))
 
+  and compileE (I.EVal v) count sym_env cstack = compileV v count cstack
+    | compileE (I.EIdent str) count sym_env cstack = ((lookup str sym_env), count, cstack)
+    | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count sym_env cstack = opify_2 e1 e2 "add" count sym_env cstack
+    | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count sym_env cstack = opify_2 e1 e2 "sub" count sym_env cstack
+    | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count sym_env cstack = opify_2 e1 e2 "mul" count sym_env cstack
+    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count sym_env cstack = condition e1 e2 count sym_env cstack "eq"
+    | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count sym_env cstack = condition e1 e2 count sym_env cstack "sgt"
+    | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env cstack = condition e1 e2 count sym_env cstack "slt"
+    | compileE (I.EApp ((I.EIdent str), e)) count sym_env cstack= (case compileE e count sym_env cstack of
+      (reg, count, cstack) => let 
+        val str =  set_count_reg count ^
+      " call %value @" ^ str ^ " (%value " ^ count_reg (count - 1)  ^ ")"
+        in
+        (count_reg (count +1), count + 1, cstack@[str])
+                            end)
+(*
     | compileE (I.EIf (e1, e2, e3)) count sym_env= (case (compileE e1 count sym_env)
        of (e1_str, e1_reg, count) => (case (compileE e2 count sym_env)
        of (e2_str, e2_reg, count) => (case (compileE e3 count sym_env)
@@ -79,42 +73,53 @@ structure CompilerLLVM = struct
         val count = count
       in
         (str, count_reg count, count)
-      end)))
-    | compileE (I.ELet (sym1, e1, e2)) count sym_env= (case (compileE e1 count sym_env)
-       of (e1_str, e1_reg, count) => let
+      end)))*)
+    | compileE (I.ELet (sym1, e1, e2)) count sym_env cstack= (case (compileE e1 count sym_env cstack)
+       of (e1_reg, count, cstack) => let
             val new_sym_env = (sym1, e1_reg)::sym_env
          in
-            (case (compileE e2 count new_sym_env)
-               of (e2_str, e2_reg, count) => (make_lines [e1_str, e2_str], e2_reg,
-               count))
+            (case (compileE e2 count new_sym_env cstack)
+               of (e2_reg, count, cstack) => (e2_reg, count, cstack))
          end)
+(*)
+    | compileE (I.ELetFun (func_name, arg_name, e1, e2)) count sym_env = let
+      val efun_expr = I.EFun(arg_name, e1)
+      in
+      (case (compileE efun_expr count sym_env) of
+        (efun_str, efun_reg, count) => let
+          val new_sym_env = (func_name, efun_reg)::sym_env
+        in
+          (case (compileE e2 count new_sym_env) of
+            (e2_str, e2_reg, count) =>
+              (make_lines [efun_str, e2_str], e2_reg, count+1)
+            )
+        end)
+    end
 
-    | compileE _ count sym_env= compileError "not supported yet"
+
+
+    | compileE (I.EFun (arg, e1)) count sym_env =
+    (case (compileE e1 count sym_env)
+       of (e1_str, e1_reg, count) => let
+         val call = set_count_reg count ^
+            "call @wrap_func((%value (%value)) * %func_" ^ Int.toString count ^ ")"
+          in
+            (call, "%func_" ^ Int.toString count, count+1, [])
+          end)
+
+*)
+
+    | compileE _ count sym_env cstack= compileError "not supported yet"
     (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
       (*(strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)*)
 
   fun compileDecl sym ((argname : string)::[]) expr = let
     val header = (if sym = "main" then "define void @" else "define %value @") ^
     sym ^ "(%value %" ^ argname ^ ")" ^ "{"
-    val body = (case compileE expr 1 ((argname, "%" ^ argname)::[]) of
-      (str, reg, count) => str ^ "\n    ret "^ (if sym = "main" then "void" else
+    val body = (case compileE expr 1 ((argname, "%" ^ argname)::[]) [] of
+      (reg, count, cstack) => (make_lines cstack) ^ "\n    ret "^ (if sym = "main" then "void" else
         ("%value " ^ count_reg (count -1 ))) ^ "\n}\n")
   in
     header ^ body
-  end
-
-  fun compileExpr expr = let
-      (*val _ = print (String.concat ["[compiling ", I.stringOfExpr expr, "]\n"])*)
-      val str = (case compileE expr 1 [] of
-        (str, reg, count) => let
-          (*val main_end = "    call void @print (i32 %" ^ Int.toString reg ^ " )\n    ret void\n}"val *)
-          val main_begin = "\ndefine void @main() {"
-          val main_end = "\n    ret void\n}"
-        in
-          main_begin ^"\n" ^ str ^ "\n" ^ main_end
-        end)
-      (*val _ = print (String.concat ["[CODE\n", str, " \n]\n"])*)
-  in
-      str
   end
 end

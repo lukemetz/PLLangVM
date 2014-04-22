@@ -5,8 +5,7 @@ structure C = CompilerLLVM;
 
 exception Error of string
 
-fun compile (P.DExpr expr) = C.compileExpr expr
-  | compile (P.DDef (str, ss, expr)) = C.compileDecl str ss expr
+fun compile (P.DDef (str, ss, expr)) = C.compileDecl str ss expr
 
 fun toLLVM ts = (case (P.parse_decl ts) of
 	SOME (decl, []) => let

@@ -1,3 +1,1 @@
-def test y = y + (y + y)
-def main y = print(test(12))
-
+def main xcf = let x = 3 in print((x+3) + (3+5))
