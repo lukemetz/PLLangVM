@@ -5,18 +5,18 @@ structure C = CompilerLLVM;
 
 exception Error of string
 
-fun compile (P.DDef (str, ss, expr)) = C.compileDecl str ss expr
+fun compile (P.DDef (str, ss, expr)) sym_env = C.compileDecl str ss expr sym_env
 
-fun toLLVM ts = (case (P.parse_decl ts) of
-	SOME (decl, []) => let
-	  val header = ";Compiled by PLLangVM"
-    val type_decl = "%value = type {i8, i32*}"
-    val type_decl_env = "%environment = type {i32, %value, %environment * }"
-                    in
-    type_decl ^ "\n" ^ type_decl_env ^ "\n" ^ (compile decl) ^ "\n" ^ header ^"\n\n"
-                    end
-| SOME (decl, ts) => (compile decl) ^ "\n" ^  (toLLVM ts)
-| NONE => ""
+fun toLLVM ts sym_env = (case (P.parse_decl ts) of
+	SOME (decl, []) =>
+      (case (compile decl sym_env) of 
+        (body, sym_env) =>  (body ^ "\n", sym_env))
+| SOME (decl, ts) => (case (compile decl sym_env) of 
+  (body, sym_env) => (case toLLVM ts sym_env 
+    of (body2,syn_env) => ((body ^ "\n" ^  body2), sym_env)))
+
+
+| NONE => ("", sym_env)
 )
 
 fun readlist (infile : string) = let
@@ -52,6 +52,11 @@ end
 
 fun read_file filename = List.foldr (fn (x,y) => x ^ y) "" (readlist filename)
 val flat_boiler = read_file "src/boiler.ll"
-val result = write ("build/" ^ base_file ^ ".ll") (toLLVM (P.lexString flat_file) ^ "\n" ^ flat_boiler);
 
+val sym_env = [("add", "@add"), ("print", "@print")]
+
+
+val result = write ("build/" ^ base_file ^ ".ll") 
+  ((case toLLVM (P.lexString flat_file) sym_env of (body, sym_env) => body) 
+  ^ "\n" ^ flat_boiler)
 val _ = OS.Process.exit(OS.Process.success)

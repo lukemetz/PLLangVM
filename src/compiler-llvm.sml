@@ -51,8 +51,9 @@ structure CompilerLLVM = struct
     | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env cstack = condition e1 e2 count sym_env cstack "slt"
     | compileE (I.EApp ((I.EIdent str), e)) count sym_env cstack= (case compileE e count sym_env cstack of
       (reg, count, cstack) => let 
+        val func_name = lookup str sym_env
         val str =  set_count_reg count ^
-      " call %value @" ^ str ^ " (%value " ^ count_reg (count - 1)  ^ ")"
+      " call %value " ^ func_name ^ " (%value " ^ count_reg (count - 1)  ^ ")"
         in
         (count_reg (count +1), count + 1, cstack@[str])
                             end)
@@ -81,45 +82,49 @@ structure CompilerLLVM = struct
             (case (compileE e2 count new_sym_env cstack)
                of (e2_reg, count, cstack) => (e2_reg, count, cstack))
          end)
-(*)
-    | compileE (I.ELetFun (func_name, arg_name, e1, e2)) count sym_env = let
+
+    | compileE (I.ELetFun (func_name, arg_name, e1, e2)) count sym_env cstack= let
       val efun_expr = I.EFun(arg_name, e1)
       in
-      (case (compileE efun_expr count sym_env) of
-        (efun_str, efun_reg, count) => let
+      (case (compileE efun_expr count sym_env cstack) of
+        (efun_reg, count, cstack) => let
           val new_sym_env = (func_name, efun_reg)::sym_env
         in
-          (case (compileE e2 count new_sym_env) of
-            (e2_str, e2_reg, count) =>
-              (make_lines [efun_str, e2_str], e2_reg, count+1)
+          (case (compileE e2 count new_sym_env cstack) of
+            (e2_reg, count, cstack) =>
+              (e2_reg, count+1, cstack)
             )
         end)
     end
 
 
 
-    | compileE (I.EFun (arg, e1)) count sym_env =
-    (case (compileE e1 count sym_env)
-       of (e1_str, e1_reg, count) => let
+    | compileE (I.EFun (arg, e1)) count sym_env cstack =
+    (case (compileE e1 count sym_env cstack)
+       of (e1_reg, count, cstack) => let
+         val func_name = "func_" ^ Int.toString count
          val call = set_count_reg count ^
-            "call @wrap_func((%value (%value)) * %func_" ^ Int.toString count ^ ")"
+            "call %value @wrap_func(%value(%value)* @" ^ func_name ^ ")"
+         val declare = case compileDecl func_name [arg] e1 sym_env of 
+          (body, sym_env) => body
           in
-            (call, "%func_" ^ Int.toString count, count+1, [])
+            ( "@" ^ func_name, count+1, (declare::cstack)@[call])
           end)
 
-*)
+
 
     | compileE _ count sym_env cstack= compileError "not supported yet"
     (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
       (*(strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)*)
 
-  fun compileDecl sym ((argname : string)::[]) expr = let
+  and compileDecl sym ((argname : string)::[]) expr sym_env= let
     val header = (if sym = "main" then "define void @" else "define %value @") ^
     sym ^ "(%value %" ^ argname ^ ")" ^ "{"
-    val body = (case compileE expr 1 ((argname, "%" ^ argname)::[]) [] of
+    val sym_env = (sym, "@"^sym)::sym_env
+    val body = (case compileE expr 1 ((argname, "%" ^ argname)::sym_env) [header] of
       (reg, count, cstack) => (make_lines cstack) ^ "\n    ret "^ (if sym = "main" then "void" else
         ("%value " ^ count_reg (count -1 ))) ^ "\n}\n")
   in
-    header ^ body
+    (body, sym_env)
   end
 end
