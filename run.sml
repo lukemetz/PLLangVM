@@ -53,7 +53,7 @@ end
 fun read_file filename = List.foldr (fn (x,y) => x ^ y) "" (readlist filename)
 val flat_boiler = read_file "src/boiler.ll"
 
-val sym_env = [("add", "@add"), ("print", "@print")]
+val sym_env = [("print", "@print")]
 
 
 val result = write ("build/" ^ base_file ^ ".ll") 
