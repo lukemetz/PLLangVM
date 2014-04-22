@@ -7,6 +7,12 @@ structure CompilerLLVM = struct
   fun compileError msg = raise Compilation msg
  (* compile a value into a sentence that produces that value *)
 
+  fun lookup (name:string) [] = compileError ("failed lookup for "^name)
+    | lookup name ((n,sent)::env) =
+        if (n = name) then
+	  sent
+	else lookup name env
+
   fun make_lines xs = List.foldr (fn (x,y) => x ^ "\n" ^ y)  "" xs
   fun count_reg count = "%"^Int.toString count
   fun set_count_reg count = "    " ^ count_reg count ^" = "
@@ -20,17 +26,17 @@ structure CompilerLLVM = struct
   (* compile an expression into a sentence that produces the same value
      as the expression *)
 
-  and opify_2 e1 e2 name count = (case compileE e1 count of
-      (e1_str, e1_reg, count) => (case compileE e2 count of
+  and opify_2 e1 e2 name count sym_env= (case compileE e1 count sym_env of
+      (e1_str, e1_reg, count) => (case compileE e2 count sym_env of
         (e2_str, e2_reg, count) => let
           val add_str = "    " ^ count_reg count ^ " = call %value @" ^ name ^"(%value " ^ count_reg e1_reg ^ ", %value " ^ count_reg e2_reg ^ ")"
            in
           (make_lines [e1_str, e2_str, add_str],  count, count + 1)
         end))
 
-  and condition e1 e2 count cond = let
-      val (str, reg, count) = (case compileE e1 count of
-        (e1_str, e1_reg, count) => (case compileE e2 count of
+  and condition e1 e2 count sym_env cond = let
+      val (str, reg, count) = (case compileE e1 count sym_env of
+        (e1_str, e1_reg, count) => (case compileE e2 count sym_env of
           (e2_str, e2_reg, count) => (e1_str ^ "\n" ^ e2_str ^ "\n" ^
             "    %" ^ Int.toString count ^ " = icmp "^ cond ^" i32 %" ^ Int.toString
             e1_reg ^ ", %" ^ Int.toString e2_reg ^ "\n",
@@ -38,22 +44,22 @@ structure CompilerLLVM = struct
        in
          (str, reg, count )
        end
-  and compileE (I.EVal v) count = compileV v count
-    | compileE (I.EIdent str) count = (("    %" ^ (Int.toString count) ^ "= add i32 0, %" ^ str ^ "\n"), count, count + 1)
-    | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count = opify_2 e1 e2 "add" count
-    | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count = opify_2 e1 e2 "sub" count
-    | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count = opify_2 e1 e2 "mul" count
-    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count = condition e1 e2 count "eq"
-    | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count = condition e1 e2 count "sgt"
-    | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count = condition e1 e2 count "slt"
-    | compileE (I.EApp ((I.EIdent str), e)) count = (case compileE e count of
+  and compileE (I.EVal v) count sym_env = compileV v count
+    | compileE (I.EIdent str) count sym_env = ("", (lookup str sym_env), count)
+    | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count sym_env = opify_2 e1 e2 "add" count sym_env
+    | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count sym_env = opify_2 e1 e2 "sub" count sym_env
+    | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count sym_env = opify_2 e1 e2 "mul" count sym_env
+    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count sym_env = condition e1 e2 count sym_env "eq"
+    | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count sym_env = condition e1 e2 count sym_env "sgt"
+    | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env = condition e1 e2 count sym_env "slt"
+    | compileE (I.EApp ((I.EIdent str), e)) count sym_env= (case compileE e count sym_env of
       (strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^
       " = call %value @" ^ str ^ " (%value %" ^ (Int.toString (count - 1))  ^ " ) \n"), count +
       1, count + 1))
 
-    | compileE (I.EIf (e1, e2, e3)) count = (case (compileE e1 count)
-       of (e1_str, e1_reg, count) => (case (compileE e2 count)
-       of (e2_str, e2_reg, count) => (case (compileE e3 count)
+    | compileE (I.EIf (e1, e2, e3)) count sym_env= (case (compileE e1 count sym_env)
+       of (e1_str, e1_reg, count) => (case (compileE e2 count sym_env)
+       of (e2_str, e2_reg, count) => (case (compileE e3 count sym_env)
        of (e3_str, e3_reg, count) => let
         val labelCount = Int.toString count
         val initial = "    br i1 %" ^ (Int.toString e1_reg) ^ ", label %then"^labelCount^", label %else"^labelCount ^"\n"
@@ -69,22 +75,22 @@ structure CompilerLLVM = struct
       in
         (str, reg, count)
       end)))
-    | compileE (I.ELet (sym1, e1, e2)) count = (case (compileE e1 count)
-       of (e1_str, e1_reg, count) => (case (compileE e2 count)
-       of (e2_str, e2_reg, count) => let
-           val rebinding_var ="    %" ^ sym1^" = add i32 0, %" ^ Int.toString e1_reg ^"\n"
+    | compileE (I.ELet (sym1, e1, e2)) count sym_env= (case (compileE e1 count sym_env)
+       of (e1_str, e1_reg, count) => let
+            val new_sym_env = (sym1, e1_reg)::sym_env
          in
-           (e1_str ^ rebinding_var ^ e2_str, e2_reg, count)
-         end
-           ))
+            (case (compileE e2 count new_sym_env)
+               of (e2_str, e2_reg, count) => (e1_str ^ "\n" ^ e2_str, e2_reg,
+               count))
+         end)
 
-    | compileE _ count = compileError "not supported yet"
+    | compileE _ count sym_env= compileError "not supported yet"
     (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
       (*(strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)*)
 
   fun compileDecl sym (ss) expr = let
     val header = (if sym = "main" then "define void @" else "define i32 @") ^ sym ^ "(" ^ (List.foldr (fn (x,y) => " i32 %" ^ x ^ y) "" ss)^ ")" ^ "{\n"
-    val body = (case compileE expr 1 of
+    val body = (case compileE expr 1 [] of
       (str, reg, count) => str ^ "\n    ret "^ (if sym = "main" then "void" else ("i32 %" ^ (Int.toString (count -1 )))) ^ "\n}\n")
   in
     header ^ body
@@ -92,7 +98,7 @@ structure CompilerLLVM = struct
 
   fun compileExpr expr = let
       (*val _ = print (String.concat ["[compiling ", I.stringOfExpr expr, "]\n"])*)
-      val str = (case compileE expr 1 of
+      val str = (case compileE expr 1 [] of
         (str, reg, count) => let
           (*val main_end = "    call void @print (i32 %" ^ Int.toString reg ^ " )\n    ret void\n}"val *)
           val main_begin = "\ndefine void @main() {"

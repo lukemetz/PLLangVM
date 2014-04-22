@@ -12,8 +12,9 @@ fun toLLVM ts = (case (P.parse_decl ts) of
 	SOME (decl, []) => let
 	  val header = ";Compiled by PLLangVM"
     val type_decl = "%value = type {i8, i32*}"
+    val type_decl_env = "%environment = type {i32, %value, %environment * }"
                     in
-    type_decl ^ "\n" ^ (compile decl) ^ "\n" ^ header ^"\n\n"
+    type_decl ^ "\n" ^ type_decl_env ^ "\n" ^ (compile decl) ^ "\n" ^ header ^"\n\n"
                     end
 | SOME (decl, ts) => (compile decl) ^ "\n" ^  (toLLVM ts)
 | NONE => ""
