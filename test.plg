@@ -1,1 +1,3 @@
-def main y = let x=3 in print(x + 4)
+def test y = y + (y + y)
+def main y = print(test(12))
+
