@@ -53,7 +53,7 @@ structure CompilerLLVM = struct
       (reg, count, cstack) => let 
         val func_name = lookup str sym_env
         val str =  set_count_reg count ^
-      " call %value " ^ func_name ^ " (%value " ^ count_reg (count - 1)  ^ ")"
+      " call %value " ^ func_name ^ " (%value* null, %value " ^ count_reg (count - 1)  ^ ")"
         in
         (count_reg (count), count + 1, cstack@[str])
                             end)
@@ -133,7 +133,7 @@ structure CompilerLLVM = struct
 
   and compileDecl sym ((argname : string)::[]) expr sym_env= let
     val header = (if sym = "main" then "define void @" else "define %value @") ^
-    sym ^ "(%value %" ^ argname ^ ")" ^ "{"
+    sym ^ "(%value* %env, %value %" ^ argname ^ ")" ^ "{"
     val sym_env = (sym, "@"^sym)::sym_env
     val body = (case compileE expr 1 ((argname, "%" ^ argname)::sym_env) [header] of
       (reg, count, cstack) => (make_lines cstack) ^ "\n    ret "^ (if sym = "main" then "void" else
