@@ -58,6 +58,16 @@ structure CompilerLLVM = struct
         (count_reg (count), count + 1, cstack@[str])
                             end)
 
+    | compileE (I.EApp(e1, e2)) count sym_env cstack = (case compileE e1 count sym_env cstack of
+      (e1_reg, count, cstack) => (case compileE e2 count sym_env cstack of
+      (e2_reg, count, cstack) => let
+        val func_name = "%func_" ^ Int.toString count
+        val extract = "    " ^ func_name ^ " = "
+         ^ "call %value(%value)*(%value)* @extract_func(%value " ^ e1_reg ^ ")"
+        val call = set_count_reg count ^ " call %value " ^ func_name ^ "(%value " ^ e2_reg ^ ")"
+      in
+        (e2_reg, count+1, cstack@[extract, call])
+      end)) 
     | compileE (I.EIf (e1, e2, e3)) count sym_env cstack= let
       val labelCount = Int.toString count
     in
@@ -112,12 +122,12 @@ structure CompilerLLVM = struct
          val declare = case compileDecl func_name [arg] e1 sym_env of 
           (body, sym_env) => body
           in
-            ( "@" ^ func_name, count+1, (declare::cstack)@[call])
+            ( count_reg count, count+1, (declare::cstack)@[call])
           end
 
 
 
-    | compileE _ count sym_env cstack= compileError "not supported yet"
+    | compileE expr count sym_env cstack= compileError ("Not implemented:\n" ^ (I.stringOfExpr expr))
     (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
       (*(strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)*)
 
