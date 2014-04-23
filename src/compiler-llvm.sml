@@ -63,8 +63,8 @@ structure CompilerLLVM = struct
       (e2_reg, count, cstack) => let
         val func_name = "%func_" ^ Int.toString count
         val extract = "    " ^ func_name ^ " = "
-         ^ "call %value(%value)*(%value)* @extract_func(%value " ^ e1_reg ^ ")"
-        val call = set_count_reg count ^ " call %value " ^ func_name ^ "(%value " ^ e2_reg ^ ")"
+         ^ "call %value(%value*, %value)*(%value)* @extract_func(%value " ^ e1_reg ^ ")"
+        val call = set_count_reg count ^ " call %value " ^ func_name ^ "(%value * null, %value " ^ e2_reg ^ ")"
       in
         (e2_reg, count+1, cstack@[extract, call])
       end)) 
@@ -118,7 +118,7 @@ structure CompilerLLVM = struct
        let
          val func_name = "func_" ^ Int.toString count
          val call = set_count_reg count ^
-            "call %value @wrap_func(%value(%value)* @" ^ func_name ^ ")"
+            "call %value @wrap_func(%value(%value*, %value)* @" ^ func_name ^ ")"
          val declare = case compileDecl func_name [arg] e1 sym_env of 
           (body, sym_env) => body
           in
