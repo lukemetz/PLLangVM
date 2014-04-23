@@ -1,2 +1,2 @@
-def test x = \y -> y+10
+def test x = \y -> y+9
 def main y = print(test(1)(1))
