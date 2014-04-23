@@ -10,7 +10,7 @@ structure CompilerLLVM = struct
   fun lookup (name:string) [] = compileError ("failed lookup for "^name)
     | lookup name ((n,sent)::env) =
         if (n = name) then
-	  sent
+          sent
 	else lookup name env
 
   fun make_lines xs = List.foldr (fn (x,y) => 
@@ -53,7 +53,7 @@ structure CompilerLLVM = struct
       (reg, count, cstack) => let 
         val func_name = lookup str sym_env
         val str =  set_count_reg count ^
-      " call %value " ^ func_name ^ " (%value* null, %value " ^ count_reg (count - 1)  ^ ")"
+          " call %value " ^ func_name ^ " (%value* null, %value " ^ reg  ^ ")"
         in
         (count_reg (count), count + 1, cstack@[str])
                             end)
