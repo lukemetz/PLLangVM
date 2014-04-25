@@ -7,11 +7,11 @@ structure CompilerLLVM = struct
   fun compileError msg = raise Compilation msg
  (* compile a value into a sentence that produces that value *)
 
-  fun lookup (name:string) [] = compileError ("failed lookup for "^name)
+  fun lookup (name:string) [] count = compileError ("failed lookup for "^name)
     | lookup name ((n,sent)::env) =
         if (n = name) then
-          sent
-	else lookup name env
+          (sent,count)
+  else lookup name env (count + 1)
 
   fun make_lines xs = List.foldr (fn (x,y) => 
     if x = "" then x ^ y else "\n" ^ x ^ y) "" xs
@@ -42,7 +42,7 @@ structure CompilerLLVM = struct
             (count_reg count, count + 1, cstack@["    %" ^ Int.toString count ^ " = icmp "^ cond ^" %value" ^ e1_reg ^ ", " ^ e2_reg ])))
 
   and compileE (I.EVal v) count sym_env cstack = compileV v count cstack
-    | compileE (I.EIdent str) count sym_env cstack = ((lookup str sym_env), count, cstack)
+    | compileE (I.EIdent str) count sym_env cstack = ((lookup str sym_env 0), count, cstack)
     | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count sym_env cstack = opify_2 e1 e2 "add" count sym_env cstack
     | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count sym_env cstack = opify_2 e1 e2 "sub" count sym_env cstack
     | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count sym_env cstack = opify_2 e1 e2 "mul" count sym_env cstack
@@ -51,7 +51,7 @@ structure CompilerLLVM = struct
     | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env cstack = opify_2 e1 e2 "slt" count sym_env cstack 
     | compileE (I.EApp ((I.EIdent str), e)) count sym_env cstack= (case compileE e count sym_env cstack of
       (reg, count, cstack) => let 
-        val func_name = lookup str sym_env
+        val func_name = lookup str sym_env 0
         val str =  set_count_reg count ^
           " call %value " ^ func_name ^ " (%value* null, %value " ^ reg  ^ ")"
         in
@@ -61,12 +61,15 @@ structure CompilerLLVM = struct
     | compileE (I.EApp(e1, e2)) count sym_env cstack = (case compileE e1 count sym_env cstack of
       (e1_reg, count, cstack) => (case compileE e2 count sym_env cstack of
       (e2_reg, count, cstack) => let
+        val length_env = Int.toString (List.length sym_env)
+        val store_env = List.foldr (fn (x,y) => case x of (name,reg) => ("%value* " ^ reg ^ ",") ^ y) "" sym_env
+        val create_env = "%localenv = ["^ length_env ^" x %value*] " ^ (String.substring store_env 0 -1)
         val func_name = "%func_" ^ Int.toString count
         val extract = "    " ^ func_name ^ " = "
          ^ "call %value(%value*, %value)*(%value)* @extract_func(%value " ^ e1_reg ^ ")"
         val call = set_count_reg count ^ " call %value " ^ func_name ^ "(%value * null, %value " ^ e2_reg ^ ")"
       in
-        (e2_reg, count+1, cstack@[extract, call])
+        (e2_reg, count+1, cstack@[extract, create_env, call])
       end)) 
     | compileE (I.EIf (e1, e2, e3)) count sym_env cstack= let
       val labelCount = Int.toString count
@@ -130,12 +133,12 @@ structure CompilerLLVM = struct
     | compileE expr count sym_env cstack= compileError ("Not implemented:\n" ^ (I.stringOfExpr expr))
     (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
       (*(strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)*)
-
   and compileDecl sym ((argname : string)::[]) expr sym_env= let
+    val get_env = List.foldr (fn (x,y) => x ^ y) "" sym_env (*FILTER OUT FUNCTIONS*)
     val header = (if sym = "main" then "define void @" else "define %value @") ^
-    sym ^ "(%value* %env, %value %" ^ argname ^ ")" ^ "{"
-    val sym_env = (sym, "@"^sym)::sym_env
-    val body = (case compileE expr 1 ((argname, "%" ^ argname)::sym_env) [header] of
+    sym ^ "(%value* %env, %value %" ^ argname ^ ")" ^ "{" ^ (if sym = "main" then "" else get_env)
+    val sym_env = (sym, "@"^sym, (List.length sym_env))::sym_env
+    val body = (case compileE expr 1 ((argname, "%" ^ argname, (List.length sym_env)::sym_env) [header] of
       (reg, count, cstack) => (make_lines cstack) ^ "\n    ret "^ (if sym = "main" then "void" else
         ("%value " ^ reg)) ^ "\n}\n")
   in
