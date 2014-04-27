@@ -1,0 +1,1 @@
+def main x = print(let y = (\z -> z+31) in y(11))

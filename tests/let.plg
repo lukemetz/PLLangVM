@@ -1,0 +1,1 @@
+def main x = print(let y = 4 in y * 3)
