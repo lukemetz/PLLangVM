@@ -119,14 +119,14 @@ structure CompilerLLVM = struct
        let
          val filtered = filter_env sym_env
          val length_env = Int.toString (List.length filtered)
-         val func_name = "func_" ^ Int.toString count
+         val func_name = "func_" ^ Int.toString count ^ "_" ^ Int.toString (List.length sym_env)
          val array_type = "[ " ^ length_env ^" x %value]"
 
-         val inserts = List.foldl (fn (x,y) => case x of (name,reg) => (let
+         val inserts = List.foldr (fn (x,y) => case x of (name,reg) => (let
            val on_idx = Int.toString (List.length y)
-           val prev_idx = if on_idx = "0" then "undef" else "%ar" ^ on_idx
+           val prev_idx = if on_idx = "0" then "undef" else "%ar" ^ Int.toString ((List.length y) -1)
          in
-            ("    %ar"^on_idx^" = insertvalue " ^ array_type ^ " " ^ prev_idx ^ ", %value "^ reg ^ ", 0")::y
+            y@[("    %ar"^on_idx^" = insertvalue " ^ array_type ^ " " ^ prev_idx ^ ", %value "^ reg ^ ", " ^ on_idx)]
          end))
             [] filtered 
           val last_ar = "%ar" ^ Int.toString ((List.length filtered) - 1)
@@ -150,13 +150,13 @@ structure CompilerLLVM = struct
     | extract_env sym_env =  
     let
       val array_type = "[" ^ Int.toString (List.length sym_env) ^ "x %value]"
-      val extracts = List.foldl (fn (x,y) => case x of (name,reg) => 
-        ("    " ^ reg ^ " = extractvalue " ^ array_type ^ " %localenv, " ^ Int.toString (List.length y))::y)
+      val extracts = List.foldr (fn (x,y) => case x of (name,reg) => 
+        ("    " ^ reg ^ " = extractvalue " ^ array_type ^ " %localenv_extract, " ^ Int.toString (List.length y))::y)
          [] sym_env
       val bitcasts =
       [
-        "    %localenv_array = bitcast %value* %env to " ^ array_type ^ "*",
-        "    %localenv = load " ^ array_type ^ "* %localenv_array"
+        "    %localenv_extract_array = bitcast %value* %env to " ^ array_type ^ "*",
+        "    %localenv_extract = load " ^ array_type ^ "* %localenv_extract_array"
       ]
     in
      bitcasts@extracts

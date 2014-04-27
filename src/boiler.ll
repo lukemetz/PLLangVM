@@ -31,7 +31,7 @@ define %value @wrap_i1(i1 %a) alwaysinline {
 }
 
 define %value* @malloc_env(i64 %size) alwaysinline {
-    %array_size = mul i64 %size, 8
+    %array_size = mul i64 %size, 16 ;what? Probably the wrong size, but whose counting.
     %a_ptr_i8 = call noalias i8* @malloc(i64 %array_size)
     %a_ptr = bitcast i8* %a_ptr_i8 to %value*
     ret %value* %a_ptr
@@ -156,3 +156,10 @@ define %value @print(%value* %env, %value %a) {
 
 declare noalias i8* @malloc(i64) #1
 declare i32 @printf(i8*, ...)
+
+
+; HELPERS
+define void @printInt(i32 %i) {
+    %1 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* @printFmt, i32 0, i32 0), i32 %i)
+    ret void
+}
