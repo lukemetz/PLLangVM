@@ -61,16 +61,15 @@ structure CompilerLLVM = struct
     | compileE (I.EApp(e1, e2)) count sym_env cstack = (case compileE e1 count sym_env cstack of
       (e1_reg, count, cstack) => (case compileE e2 count sym_env cstack of
       (e2_reg, count, cstack) => let
-        val filtered = filter_env sym_env
-        val length_env = Int.toString (List.length filtered)
-        val store_env = List.foldr (fn (x,y) => case x of (name,reg) => ("%value* " ^ reg ^ ",") ^ y) "" filtered
-        val create_env = "%localenv = ["^ length_env ^" x %value] " ^ String.implode(List.tl(String.explode store_env))
-        val func_name = "%func_" ^ Int.toString count
-        val extract = "    " ^ func_name ^ " = "
+        val func_name_ptr = "%func_ptr_" ^ Int.toString count
+        val func_name_env = "%func_env_" ^ Int.toString count
+        val extract_func = "    " ^ func_name_ptr ^ " = "
          ^ "call %value(%value*, %value)*(%value)* @extract_func(%value " ^ e1_reg ^ ")"
-        val call = set_count_reg count ^ " call %value " ^ func_name ^ "(%value * null, %value " ^ e2_reg ^ ")"
+        val extract_env = "    " ^ func_name_env ^ " = "
+         ^ "call %value* @extract_env(%value " ^ e1_reg ^ ")"
+        val call = set_count_reg count ^ " call %value " ^ func_name_ptr ^ "(%value * " ^ func_name_env ^ ", %value " ^ e2_reg ^ ")"
       in
-        (e2_reg, count+1, cstack@[extract, create_env, call])
+        (count_reg count, count+1, cstack@[extract_func, extract_env, call])
       end)) 
     | compileE (I.EIf (e1, e2, e3)) count sym_env cstack= let
       val labelCount = Int.toString count
@@ -118,26 +117,54 @@ structure CompilerLLVM = struct
     (*(case (compileE e1 count sym_env cstack)*)
        (*of (e1_reg, count, cstack) =>*)
        let
+         val filtered = filter_env sym_env
+         val length_env = Int.toString (List.length filtered)
          val func_name = "func_" ^ Int.toString count
+         val array_type = "[ " ^ length_env ^" x %value]"
+
+         val inserts = List.foldl (fn (x,y) => case x of (name,reg) => (let
+           val on_idx = Int.toString (List.length y)
+           val prev_idx = if on_idx = "0" then "undef" else "%ar" ^ on_idx
+         in
+            ("    %ar"^on_idx^" = insertvalue " ^ array_type ^ " " ^ prev_idx ^ ", %value "^ reg ^ ", 0")::y
+         end))
+            [] filtered 
+          val last_ar = "%ar" ^ Int.toString ((List.length filtered) - 1)
+
+         val casts =   ["    %localenv = call %value* @malloc_env(i64 " ^ length_env ^ ")",
+                        "    %localenv_array = bitcast %value* %localenv to " ^ array_type ^ "*",
+                        "    store " ^ array_type ^ " " ^ last_ar ^ ", " ^ array_type ^ "* %localenv_array",
+                        "    %localenv_ptr = bitcast " ^ array_type ^ "* %localenv_array to %value*"]
          val call = set_count_reg count ^
-            "call %value @wrap_func(%value(%value*, %value)* @" ^ func_name ^ ")"
+            "call %value @wrap_func(%value(%value*, %value)* @" ^ func_name ^ ", %value* %localenv_ptr)"
          val declare = case compileDecl func_name [arg] e1 sym_env of 
           (body, sym_env) => body
           in
-            ( count_reg count, count+1, (declare::cstack)@[call])
+            ( count_reg count, count+1, (declare::cstack)@inserts@casts@[call])
           end
     | compileE expr count sym_env cstack= compileError ("Not implemented:\n" ^ (I.stringOfExpr expr))
 
     (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
       (*(strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)*)
-  and extract_env ((name,reg)::ss) counter = 
-     (reg ^ "_ptr =" ^ "getelementptr [10 x %value] %env, i32 " 
-          ^ (Int.toString counter) ^ "\n")::(extract_env ss (counter + 1))
-    |extract_env [] counter = []
+  and extract_env [] = []
+    | extract_env sym_env =  
+    let
+      val array_type = "[" ^ Int.toString (List.length sym_env) ^ "x %value]"
+      val extracts = List.foldl (fn (x,y) => case x of (name,reg) => 
+        ("    " ^ reg ^ " = extractvalue " ^ array_type ^ " %localenv, " ^ Int.toString (List.length y))::y)
+         [] sym_env
+      val bitcasts =
+      [
+        "    %localenv_array = bitcast %value* %env to " ^ array_type ^ "*",
+        "    %localenv = load " ^ array_type ^ "* %localenv_array"
+      ]
+    in
+     bitcasts@extracts
+    end
 
   and compileDecl sym ((argname : string)::[]) expr sym_env = 
     let
-      val get_env = extract_env (filter_env sym_env) 0
+      val get_env = extract_env (filter_env sym_env)
       val header = (if sym = "main" then "define void @" else "define %value @") ^
       sym ^ "(%value* %env, %value %" ^ argname ^ ")" ^ "{" ^ (make_lines  (if sym = "main" then [] else get_env))
       val sym_env = ((sym, "@"^sym)::sym_env)

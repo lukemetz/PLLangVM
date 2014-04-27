@@ -5,7 +5,7 @@
 ; 3 is bool
 
 %value = type {i8, i32*}
-%environment = type {i32, %value, %environment * }
+%func_t = type {%value (%value*, %value) *, %value *}
 
 define i32* @malloc_i32() {
     %a_ptr_i8 = call noalias i8* @malloc(i64 4) #2
@@ -30,8 +30,23 @@ define %value @wrap_i1(i1 %a) alwaysinline {
     ret %value %a_wrap
 }
 
-define %value @wrap_func(%value (%value*, %value) * %a) {
-    %a_ptr = bitcast %value(%value*,%value)* %a to i32 *
+define %value* @malloc_env(i64 %size) alwaysinline {
+    %array_size = mul i64 %size, 8
+    %a_ptr_i8 = call noalias i8* @malloc(i64 %array_size)
+    %a_ptr = bitcast i8* %a_ptr_i8 to %value*
+    ret %value* %a_ptr
+}
+
+define %value @wrap_func(%value (%value*, %value) * %a, %value* %env) {
+    %func_type_i8 = call noalias i8* @malloc(i64 16)
+    %func_type_ptr = bitcast i8* %func_type_i8 to %func_t*
+    %temp_func = insertvalue %func_t undef, %value (%value*, %value) * %a, 0
+    %stack_func_t = insertvalue %func_t %temp_func, %value* %env, 1
+
+    store %func_t %stack_func_t, %func_t* %func_type_ptr
+
+
+    %a_ptr = bitcast %func_t* %func_type_ptr to i32 *
     %a_tempstruct = insertvalue %value undef, i32* %a_ptr, 1
     %a_wrap = insertvalue %value %a_tempstruct, i8 2, 0 ;The function type
     ret %value %a_wrap
@@ -39,9 +54,21 @@ define %value @wrap_func(%value (%value*, %value) * %a) {
 
 define %value(%value*, %value)* @extract_func(%value %a) {
     %a_ptr = extractvalue %value %a, 1
-    %a_func_ptr = bitcast i32* %a_ptr to %value(%value*, %value)*
+    %a_func_t_ptr = bitcast i32* %a_ptr to %func_t*
+    %a_func_t = load %func_t* %a_func_t_ptr
+    %a_func_ptr = extractvalue %func_t %a_func_t, 0
     ret %value(%value*, %value)* %a_func_ptr
 }
+
+
+define %value* @extract_env(%value %a) {
+    %a_ptr = extractvalue %value %a, 1
+    %a_func_t_ptr = bitcast i32* %a_ptr to %func_t*
+    %a_func_t = load %func_t* %a_func_t_ptr
+    %a_func_ptr = extractvalue %func_t %a_func_t, 1
+    ret %value* %a_func_ptr
+}
+
 
 define i1 @extract_i1(%value %a) alwaysinline {
     %a_ptr = extractvalue %value %a, 1
