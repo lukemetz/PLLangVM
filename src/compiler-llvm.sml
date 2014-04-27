@@ -162,8 +162,13 @@ structure CompilerLLVM = struct
      bitcasts@extracts
     end
 
-  and compileDecl sym ((argname : string)::[]) expr sym_env = 
+  and make_curry [] expr = expr
+    | make_curry (x::xs) expr = (I.EFun (x, (make_curry xs expr)))
+
+  and compileDecl sym params expr sym_env = 
     let
+      val argname = (hd params)
+      val expr = make_curry (List.rev (tl params)) expr
       val get_env = extract_env (filter_env sym_env)
       val header = (if sym = "main" then "define void @" else "define %value @") ^
       sym ^ "(%value* %env, %value %" ^ argname ^ ")" ^ "{" ^ (make_lines  (if sym = "main" then [] else get_env))
