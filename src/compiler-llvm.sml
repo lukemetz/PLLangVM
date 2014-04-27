@@ -40,25 +40,7 @@ structure CompilerLLVM = struct
         (e1_reg, count, cstack) => (case compileE e2 count sym_env cstack of
           (e2_reg, count, cstack) => 
             (count_reg count, count + 1, cstack@["    %" ^ Int.toString count ^ " = icmp "^ cond ^" %value" ^ e1_reg ^ ", " ^ e2_reg ])))
-
-  and compileE (I.EVal v) count sym_env cstack = compileV v count cstack
-    | compileE (I.EIdent str) count sym_env cstack = ((lookup str sym_env), count, cstack)
-    | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count sym_env cstack = opify_2 e1 e2 "add" count sym_env cstack
-    | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count sym_env cstack = opify_2 e1 e2 "sub" count sym_env cstack
-    | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count sym_env cstack = opify_2 e1 e2 "mul" count sym_env cstack
-    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count sym_env cstack = opify_2 e1 e2 "eq"  count sym_env cstack 
-    | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count sym_env cstack = opify_2 e1 e2 "sgt" count sym_env cstack
-    | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env cstack = opify_2 e1 e2 "slt" count sym_env cstack 
-    | compileE (I.EApp ((I.EIdent str), e)) count sym_env cstack= (case compileE e count sym_env cstack of
-      (reg, count, cstack) => let 
-        val func_name = lookup str sym_env 
-        val str =  set_count_reg count ^
-          " call %value " ^ func_name ^ " (%value* null, %value " ^ reg  ^ ")"
-        in
-        (count_reg (count), count + 1, cstack@[str])
-                            end)
-
-    | compileE (I.EApp(e1, e2)) count sym_env cstack = (case compileE e1 count sym_env cstack of
+  and extractCallFunc e1 e2 count sym_env cstack = (case compileE e1 count sym_env cstack of
       (e1_reg, count, cstack) => (case compileE e2 count sym_env cstack of
       (e2_reg, count, cstack) => let
         val func_name_ptr = "%func_ptr_" ^ Int.toString count
@@ -70,7 +52,36 @@ structure CompilerLLVM = struct
         val call = set_count_reg count ^ " call %value " ^ func_name_ptr ^ "(%value * " ^ func_name_env ^ ", %value " ^ e2_reg ^ ")"
       in
         (count_reg count, count+1, cstack@[extract_func, extract_env, call])
-      end)) 
+      end))
+  and callFunc (I.EIdent str) e2 count sym_env cstack = (case compileE e2 count sym_env cstack of
+      (reg, count, cstack) => let
+        val func_name = lookup str sym_env
+        val str =  set_count_reg count ^
+          " call %value " ^ func_name ^ " (%value* null, %value " ^ reg  ^ ")"
+        in
+        (count_reg (count), count + 1, cstack@[str])
+                            end)
+  and compileE (I.EVal v) count sym_env cstack = compileV v count cstack
+    | compileE (I.EIdent str) count sym_env cstack = ((lookup str sym_env), count, cstack)
+    | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count sym_env cstack = opify_2 e1 e2 "add" count sym_env cstack
+    | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count sym_env cstack = opify_2 e1 e2 "sub" count sym_env cstack
+    | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count sym_env cstack = opify_2 e1 e2 "mul" count sym_env cstack
+    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count sym_env cstack = opify_2 e1 e2 "eq"  count sym_env cstack 
+    | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count sym_env cstack = opify_2 e1 e2 "sgt" count sym_env cstack
+    | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env cstack = opify_2 e1 e2 "slt" count sym_env cstack 
+    | compileE (I.EApp ((I.EIdent str), e)) count sym_env cstack= (case compileE e count sym_env cstack of
+      (reg, count, cstack) => let
+        val func_name = lookup str sym_env
+        val first_letter = String.substring (func_name, 0, 1)
+      in
+        if first_letter = "@" then
+          callFunc (I.EIdent str) e count sym_env cstack
+        else
+          extractCallFunc (I.EIdent str) e count sym_env cstack
+       end)
+
+
+    | compileE (I.EApp(e1, e2)) count sym_env cstack = extractCallFunc e1 e2 count sym_env cstack
     | compileE (I.EIf (e1, e2, e3)) count sym_env cstack= let
       val labelCount = Int.toString count
     in
@@ -121,22 +132,22 @@ structure CompilerLLVM = struct
          val length_env = Int.toString (List.length filtered)
          val func_name = "func_" ^ Int.toString count ^ "_" ^ Int.toString (List.length sym_env)
          val array_type = "[ " ^ length_env ^" x %value]"
-
+         val ar_base = "%ar_" ^ (Int.toString count) ^ "_"
          val inserts = List.foldr (fn (x,y) => case x of (name,reg) => (let
            val on_idx = Int.toString (List.length y)
-           val prev_idx = if on_idx = "0" then "undef" else "%ar" ^ Int.toString ((List.length y) -1)
+           val prev_idx = if on_idx = "0" then "undef" else ar_base ^ Int.toString ((List.length y) -1)
          in
-            y@[("    %ar"^on_idx^" = insertvalue " ^ array_type ^ " " ^ prev_idx ^ ", %value "^ reg ^ ", " ^ on_idx)]
+            y@[("    "^ar_base^on_idx^" = insertvalue " ^ array_type ^ " " ^ prev_idx ^ ", %value "^ reg ^ ", " ^ on_idx)]
          end))
             [] filtered 
-          val last_ar = "%ar" ^ Int.toString ((List.length filtered) - 1)
-
-         val casts =   ["    %localenv = call %value* @malloc_env(i64 " ^ length_env ^ ")",
-                        "    %localenv_array = bitcast %value* %localenv to " ^ array_type ^ "*",
-                        "    store " ^ array_type ^ " " ^ last_ar ^ ", " ^ array_type ^ "* %localenv_array",
-                        "    %localenv_ptr = bitcast " ^ array_type ^ "* %localenv_array to %value*"]
+          val last_ar = ar_base ^ Int.toString ((List.length filtered) - 1)
+         val localenv = "%localenv_"^Int.toString count
+         val casts =   ["    "^ localenv ^ " = call %value* @malloc_env(i64 " ^ length_env ^ ")",
+                        "    " ^ localenv ^ "_array = bitcast %value* " ^ localenv ^ " to " ^ array_type ^ "*",
+                        "    store " ^ array_type ^ " " ^ last_ar ^ ", " ^ array_type ^ "* "^ localenv ^ "_array",
+                        "    " ^ localenv ^"_ptr = bitcast " ^ array_type ^ "* " ^ localenv ^ "_array to %value*"]
          val call = set_count_reg count ^
-            "call %value @wrap_func(%value(%value*, %value)* @" ^ func_name ^ ", %value* %localenv_ptr)"
+            "call %value @wrap_func(%value(%value*, %value)* @" ^ func_name ^ ", %value* " ^ localenv ^ "_ptr)"
          val declare = case compileDecl func_name [arg] e1 sym_env of 
           (body, sym_env) => body
           in

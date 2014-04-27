@@ -2,30 +2,23 @@ import sys, os
 
 def cleanBuild(output):
 	print "Cleaning previous build..."
+	import shutil
 	if not os.path.exists("build"):
             os.mkdir("build")
 	if os.path.exists("build"):
-		for buildFile in os.listdir("build"):
-			os.remove(os.path.join("build",buildFile))
-	if os.path.exists(output):
-		os.remove(output)
+		shutil.rmtree("build")
 
 def compileLinux(output):
-	os.system("rlwrap sml run.sml " + sys.argv[1])
+	name = output.split(".")[0]
+	os.system("rlwrap sml run.sml " + output)
 	print "Compiling with llvm..."
-	if not os.path.exists("build/" + output + ".ll"):
-		print "COMPILE ERROR"
-		return
-	os.system("llc " + "build/" + output + ".ll -o build/" + output + ".s")
-	os.system("gcc " + "build/" + output + ".s" + " -o " + output)
+	os.system("llc " + "build/" + name + ".ll -o build/" + name + ".s")
+	os.system("gcc " + "build/" + name + ".s" + " -o " + name)
 	print "Compile Success"
 
 def compileWin(output):
 	print "Reading IR to LLVM"
-	os.system("sml run.sml %s" % sys.argv[1])
-	if not os.path.exists("build\\{0}.ll".format(output)):
-		print "COMPILE ERROR"
-		return
+	os.system("sml run.sml %s" % sys.argv[1], stdout=None)
 	print "Compiling with llvm..."
 	os.system("llc build\\{0}.ll -o build\\{0}.s &&\"C:\mingw\\bin\\gcc.exe\" build\{0}.s -o {0}".format(output))
 	print "Compile Success"
@@ -35,8 +28,10 @@ def compileOSX(output):
 	pass
 
 if __name__ == "__main__":
-	filename = sys.argv[1].split(".")[0]
+	filename = sys.argv[1]
 	cleanBuild(filename)
+	print os.path.dirname(filename)
+	os.makedirs(os.path.join("build", os.path.dirname(filename)))
 	if "win" in sys.platform:
 		compileWin(filename)
 	elif "darwin" in sys.platform:
