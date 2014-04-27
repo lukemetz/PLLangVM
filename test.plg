@@ -1,2 +1,2 @@
-def test z = \x -> x+1
-def main y = print(test(41)(42))
+def test z = \x -> x+z
+def main y = print(test(21)(42))

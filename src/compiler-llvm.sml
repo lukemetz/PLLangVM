@@ -6,12 +6,12 @@ structure CompilerLLVM = struct
 
   fun compileError msg = raise Compilation msg
  (* compile a value into a sentence that produces that value *)
-
+ fun filter_env sym_env = List.filter (fn x => case x of (str,reg) => not (String.substring (reg,0,1) = "@")) sym_env
   fun lookup (name:string) [] = compileError ("failed lookup for "^name)
     | lookup name ((n,sent)::env) =
         if (n = name) then
-          sent
-	else lookup name env
+          (sent)
+  else lookup name env 
 
   fun make_lines xs = List.foldr (fn (x,y) => 
     if x = "" then x ^ y else "\n" ^ x ^ y) "" xs
@@ -51,7 +51,7 @@ structure CompilerLLVM = struct
     | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env cstack = opify_2 e1 e2 "slt" count sym_env cstack 
     | compileE (I.EApp ((I.EIdent str), e)) count sym_env cstack= (case compileE e count sym_env cstack of
       (reg, count, cstack) => let 
-        val func_name = lookup str sym_env
+        val func_name = lookup str sym_env 
         val str =  set_count_reg count ^
           " call %value " ^ func_name ^ " (%value* null, %value " ^ reg  ^ ")"
         in
@@ -61,12 +61,15 @@ structure CompilerLLVM = struct
     | compileE (I.EApp(e1, e2)) count sym_env cstack = (case compileE e1 count sym_env cstack of
       (e1_reg, count, cstack) => (case compileE e2 count sym_env cstack of
       (e2_reg, count, cstack) => let
-        val func_name = "%func_" ^ Int.toString count
-        val extract = "    " ^ func_name ^ " = "
+        val func_name_ptr = "%func_ptr_" ^ Int.toString count
+        val func_name_env = "%func_env_" ^ Int.toString count
+        val extract_func = "    " ^ func_name_ptr ^ " = "
          ^ "call %value(%value*, %value)*(%value)* @extract_func(%value " ^ e1_reg ^ ")"
-        val call = set_count_reg count ^ " call %value " ^ func_name ^ "(%value * null, %value " ^ e2_reg ^ ")"
+        val extract_env = "    " ^ func_name_env ^ " = "
+         ^ "call %value* @extract_env(%value " ^ e1_reg ^ ")"
+        val call = set_count_reg count ^ " call %value " ^ func_name_ptr ^ "(%value * " ^ func_name_env ^ ", %value " ^ e2_reg ^ ")"
       in
-        (e2_reg, count+1, cstack@[extract, call])
+        (count_reg count, count+1, cstack@[extract_func, extract_env, call])
       end)) 
     | compileE (I.EIf (e1, e2, e3)) count sym_env cstack= let
       val labelCount = Int.toString count
@@ -110,35 +113,65 @@ structure CompilerLLVM = struct
         end)
     end
 
-
-
     | compileE (I.EFun (arg, e1)) count sym_env cstack =
     (*(case (compileE e1 count sym_env cstack)*)
        (*of (e1_reg, count, cstack) =>*)
        let
+         val filtered = filter_env sym_env
+         val length_env = Int.toString (List.length filtered)
          val func_name = "func_" ^ Int.toString count
+         val array_type = "[ " ^ length_env ^" x %value]"
+
+         val inserts = List.foldl (fn (x,y) => case x of (name,reg) => (let
+           val on_idx = Int.toString (List.length y)
+           val prev_idx = if on_idx = "0" then "undef" else "%ar" ^ on_idx
+         in
+            ("    %ar"^on_idx^" = insertvalue " ^ array_type ^ " " ^ prev_idx ^ ", %value "^ reg ^ ", 0")::y
+         end))
+            [] filtered 
+          val last_ar = "%ar" ^ Int.toString ((List.length filtered) - 1)
+
+         val casts =   ["    %localenv = call %value* @malloc_env(i64 " ^ length_env ^ ")",
+                        "    %localenv_array = bitcast %value* %localenv to " ^ array_type ^ "*",
+                        "    store " ^ array_type ^ " " ^ last_ar ^ ", " ^ array_type ^ "* %localenv_array",
+                        "    %localenv_ptr = bitcast " ^ array_type ^ "* %localenv_array to %value*"]
          val call = set_count_reg count ^
-            "call %value @wrap_func(%value(%value*, %value)* @" ^ func_name ^ ")"
+            "call %value @wrap_func(%value(%value*, %value)* @" ^ func_name ^ ", %value* %localenv_ptr)"
          val declare = case compileDecl func_name [arg] e1 sym_env of 
           (body, sym_env) => body
           in
-            ( count_reg count, count+1, (declare::cstack)@[call])
+            ( count_reg count, count+1, (declare::cstack)@inserts@casts@[call])
           end
-
-
-
     | compileE expr count sym_env cstack= compileError ("Not implemented:\n" ^ (I.stringOfExpr expr))
+
     (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
       (*(strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (Int.toString (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (Int.toString (reg))  ^ " )"), count + 1, count + 2)*)
+  and extract_env [] = []
+    | extract_env sym_env =  
+    let
+      val array_type = "[" ^ Int.toString (List.length sym_env) ^ "x %value]"
+      val extracts = List.foldl (fn (x,y) => case x of (name,reg) => 
+        ("    " ^ reg ^ " = extractvalue " ^ array_type ^ " %localenv, " ^ Int.toString (List.length y))::y)
+         [] sym_env
+      val bitcasts =
+      [
+        "    %localenv_array = bitcast %value* %env to " ^ array_type ^ "*",
+        "    %localenv = load " ^ array_type ^ "* %localenv_array"
+      ]
+    in
+     bitcasts@extracts
+    end
 
-  and compileDecl sym ((argname : string)::[]) expr sym_env= let
-    val header = (if sym = "main" then "define void @" else "define %value @") ^
-    sym ^ "(%value* %env, %value %" ^ argname ^ ")" ^ "{"
-    val sym_env = (sym, "@"^sym)::sym_env
-    val body = (case compileE expr 1 ((argname, "%" ^ argname)::sym_env) [header] of
-      (reg, count, cstack) => (make_lines cstack) ^ "\n    ret "^ (if sym = "main" then "void" else
-        ("%value " ^ reg)) ^ "\n}\n")
-  in
-    (body, sym_env)
+  and compileDecl sym ((argname : string)::[]) expr sym_env = 
+    let
+      val get_env = extract_env (filter_env sym_env)
+      val header = (if sym = "main" then "define void @" else "define %value @") ^
+      sym ^ "(%value* %env, %value %" ^ argname ^ ")" ^ "{" ^ (make_lines  (if sym = "main" then [] else get_env))
+      val sym_env = ((sym, "@"^sym)::sym_env)
+      val body = (case compileE expr 1 ((argname, "%" ^ argname)::sym_env) [header] of
+        (reg, count, cstack) => (make_lines cstack) ^ "\n    ret "^ (if sym = "main" then "void" else
+          ("%value " ^ reg)) ^ "\n}\n")
+    in
+      (body, sym_env)
   end
 end

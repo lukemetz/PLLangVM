@@ -59,6 +59,6 @@ val sym_env = [("print", "@print")]
 val result = write ("build/" ^ base_file ^ ".ll") 
   ((case toLLVM (P.lexString flat_file) sym_env of (body, sym_env) => body) 
   ^ "\n" ^ flat_boiler)
-val _ = print "All good in sml bro"
+val _ = print "All good in sml bro\n"
 val _ = OS.Process.exit(OS.Process.success)
 
