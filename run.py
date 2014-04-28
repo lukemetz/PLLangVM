@@ -18,9 +18,9 @@ def compileLinux(output):
 
 def compileWin(output):
 	print "Reading IR to LLVM"
-	os.system("sml run.sml %s" % sys.argv[1], stdout=None)
+	os.system("sml run.sml %s" % sys.argv[1])
 	print "Compiling with llvm..."
-	os.system("llc build\\{0}.ll -o build\\{0}.s &&\"C:\mingw\\bin\\gcc.exe\" build\{0}.s -o {0}".format(output))
+	os.system("llc build\\{0}.ll -o build\\{0}.s &&\"C:\mingw\\bin\\gcc.exe\" build\{0}.s -o {0}".format(output[:output.rfind(".plg")]))
 	print "Compile Success"
 
 def compileOSX(output):
