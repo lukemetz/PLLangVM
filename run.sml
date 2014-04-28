@@ -34,7 +34,7 @@ fun write fileName s =
   	val _ = TextIO.output(file, s)
   	val _ = TextIO.closeOut file
   in
-  	print "Written to llvm file. \n"
+  	print "\n ::PLANG COMPILER::\n Written to llvm file. \n"
   end
 
 (*Read file*)
@@ -42,7 +42,7 @@ fun read_file filename = List.foldr (fn (x,y) => x ^ y) "" (read_lines filename)
 
 (*Runs the compiler*)
 fun compile (P.DDef (str, ss, expr)) sym_env = C.compileDecl str ss expr sym_env
-  | compile _ _ = parseError "Plang Compiler could not understand the file input"
+  | compile _ _ = parseError "\n ::PLANG COMPILER::\n Could not understand the file input!"
 
 (*Parses and feeds token list to compiler*)
 fun generate_LLVM ts sym_env = 
@@ -74,7 +74,7 @@ fun runPlang boiler initEnv =
             of (body, initEnv) => body
           )^ "\n" ^ flat_boiler)
   in
-    print "All good in sml bro\n"
+    print "\n ::PLANG COMPILER::\n All good in PLANG bro\n\n"
   end
 
 val _ = runPlang "src/boiler.ll" [("print", "@print")]
