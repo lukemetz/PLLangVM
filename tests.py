@@ -22,6 +22,7 @@ def run_sml(filename):
 	result = open(output_file, "r").read().strip()
 
 	return result
+	
 class Test(unittest.TestCase):
 	def test_basic(self):
 		self.assertEquals(run_sml("tests/basic.plg"), "2")
