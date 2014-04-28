@@ -100,6 +100,49 @@ and compileE_call str e count sym_env cstack =
             extractCallFunc (I.EIdent str) e count sym_env cstack
       end
   )
+(*I.EIf (e1, e2, e3)*)
+and compileE_if e1 e2 e3 count sym_env cstack = 
+  let
+    val labelCount = itos count
+    val to_label = "%to_i8_" ^ labelCount
+    val br_label = "    br label %ifcont" ^ labelCount
+  in
+    (case (compileE e1 count sym_env cstack)
+      of (e1_reg, count, cstack) => 
+        (case (compileE e2 count sym_env (cstack @
+                [
+                  "    " ^ to_label ^ " = call i1 @extract_i1( %value " ^ e1_reg ^ ")", 
+                  "    br i1 " ^ to_label ^ ", label %then" ^ labelCount ^ ", label %else" ^ labelCount,
+                  "then" ^ labelCount ^ ":"
+                ]))
+          of (e2_reg, count, cstack) => 
+            (case (compileE e3 count sym_env (cstack@[br_label, "else" ^ labelCount ^ ":"]))
+              of (e3_reg, count, cstack) => 
+                (count_reg count, count+1, cstack@
+                  [
+                    br_label,
+                    "ifcont" ^ labelCount ^ ":",
+                    set_count_reg count ^ " phi %value [" ^ e2_reg ^ ", %then" ^ labelCount ^ "], [" ^ e3_reg ^ ", %else" ^ labelCount ^ "]" 
+                  ]
+                )
+            )
+        )
+    )
+  end
+
+(*(I.ELet (sym, e1, e2))*)
+and compileE_let sym e1 e2 count sym_env cstack = 
+  (case (compileE e1 count sym_env cstack)
+    of (e1_reg, count, cstack) => 
+      let
+        val new_sym_env = (sym, e1_reg)::sym_env
+      in
+        (case (compileE e2 count new_sym_env cstack)
+          of (e2_reg, count, cstack) => 
+            (e2_reg, count, cstack)
+        )
+      end
+  )
 
 (*Compile Expression body*)
 and compileE (I.EVal v) count sym_env cstack = compileV v count cstack
@@ -112,35 +155,9 @@ and compileE (I.EVal v) count sym_env cstack = compileV v count cstack
   | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env cstack = operation e1 e2 "slt" count sym_env cstack 
   | compileE (I.EApp ((I.EIdent str), e)) count sym_env cstack = compileE_call str e count sym_env cstack
   | compileE (I.EApp(e1, e2)) count sym_env cstack = extractCallFunc e1 e2 count sym_env cstack
-  | compileE (I.EIf (e1, e2, e3)) count sym_env cstack= let
-      val labelCount = itos count
-    in
-      (case (compileE e1 count sym_env cstack)
-       of (e1_reg, count, cstack) => (case (compileE e2 count sym_env (cstack@
-                ["    %to_i8_"^labelCount^" = call i1 @extract_i1( %value " ^ e1_reg ^ ")", 
-                 "    br i1 %to_i8_"^ labelCount ^ ", label %then"^labelCount^", label %else"^labelCount ^"\n",
-                 "then"^labelCount^":"]))
-          of (e2_reg, count, cstack) => (case (compileE e3 count sym_env (cstack@
-                ["    br label %ifcont"^labelCount,"else"^labelCount^":"]))
-              of (e3_reg, count, cstack) => 
-                (count_reg count, count+1, cstack@
-                  [
-                    "    br label %ifcont"^labelCount^"\n",
-                    "ifcont"^labelCount^":",
-                    set_count_reg count ^ " phi %value [" ^ e2_reg ^ ", %then" ^ labelCount ^ "], [" ^ e3_reg ^ ", %else" ^ labelCount ^ "]" 
-                  ]
-                  ))))
-    end
-
-    | compileE (I.ELet (sym1, e1, e2)) count sym_env cstack= (case (compileE e1 count sym_env cstack)
-       of (e1_reg, count, cstack) => let
-            val new_sym_env = (sym1, e1_reg)::sym_env
-         in
-            (case (compileE e2 count new_sym_env cstack)
-               of (e2_reg, count, cstack) => (e2_reg, count, cstack))
-         end)
-
-    | compileE (I.ELetFun (func_name, arg_name, e1, e2)) count sym_env cstack= let
+  | compileE (I.EIf (e1, e2, e3)) count sym_env cstack = compileE_if e1 e2 e3 count sym_env cstack
+  | compileE (I.ELet (sym, e1, e2)) count sym_env cstack = compileE_let sym e1 e2 count sym_env cstack 
+  | compileE (I.ELetFun (func_name, arg_name, e1, e2)) count sym_env cstack= let
       val efun_expr = I.EFun(arg_name, e1)
       in
       (case (compileE efun_expr count sym_env cstack) of
