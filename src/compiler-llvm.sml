@@ -5,6 +5,11 @@ structure CompilerLLVM = struct
 exception Compilation of string
 fun compileError msg = raise Compilation msg
  
+ 
+(***************************
+          HELPERS
+***************************)
+
 (*Filter functions out of symbol environemnt*)
 fun filter_env sym_env = List.filter (fn x => case x of (str,reg) => not (String.substring (reg,0,1) = "@")) sym_env
 
@@ -14,10 +19,10 @@ fun make_lines xs = List.foldr (fn (x,y) => if x = "" then x ^ y else "\n" ^ x ^
 (*Int.toString helper*)
 fun itos i = Int.toString i
 
-(*Helper to add % in front of count for temporary variables*)
+(*Add % in front of count for temporary variables*)
 fun count_reg count = "%" ^ (itos count)
 
-(*Helper to set temp variables*)
+(*Set temp variables*)
 fun set_count_reg count = "    " ^ (count_reg count) ^" = "
 
 (*Symbol Environment Lookup*)
@@ -28,6 +33,10 @@ fun lookup (name:string) [] = compileError ("failed lookup for "^name)
         sent
       else 
         lookup name env 
+        
+(***************************
+          COMPILER
+***************************)
 
 (*Original Decl compilation*)
 fun compileDecl sym params expr sym_env = 
