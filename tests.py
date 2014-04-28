@@ -5,7 +5,6 @@ import sys
 
 def run_sml(filename):
 	cleanBuild(filename)
-	print os.path.dirname(filename)
 	os.makedirs(os.path.join("build", os.path.dirname(filename)))
 	if "win" in sys.platform:
 		compileWin(filename)

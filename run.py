@@ -11,17 +11,16 @@ def cleanBuild(output):
 def compileLinux(output):
 	name = output.split(".")[0]
 	os.system("rlwrap sml run.sml " + output)
-	print "Compiling with llvm..."
+	print "PLANG Compiler running ..."
 	os.system("llc " + "build/" + name + ".ll -o build/" + name + ".s")
 	os.system("gcc " + "build/" + name + ".s" + " -o " + name)
-	print "Compile Success"
+	print "==== Compile Success! ===="
 
 def compileWin(output):
-	print "Reading IR to LLVM"
 	os.system("sml run.sml %s" % output)
-	print "Compiling with llvm..."
+	print "PLANG Compiler running ..."
 	os.system("llc build\\{0}.ll -o build\\{0}.s &&\"C:\mingw\\bin\\gcc.exe\" build\{0}.s -o {0}".format(output[:output.rfind(".plg")]))
-	print "Compile Success"
+	print "==== Compile Success! ===="
 
 def compileOSX(output):
 	print "Unimplemented in Mac OS X"
@@ -30,7 +29,6 @@ def compileOSX(output):
 if __name__ == "__main__":
 	filename = sys.argv[1]
 	cleanBuild(filename)
-	print os.path.dirname(filename)
 	os.makedirs(os.path.join("build", os.path.dirname(filename)))
 	if "win" in sys.platform:
 		compileWin(filename)
