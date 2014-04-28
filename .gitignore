@@ -11,6 +11,11 @@
 *.cmd
 *.exe
 
+# Python compilation files
+*.pyc
+*.pyo
+*.pyd
+
 # llvm files
 *.s
 build
