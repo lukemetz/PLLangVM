@@ -39,7 +39,7 @@ fun compileV (I.VInt i) count cstack =
   | compileV _ _ _= compileError "Only ints supported"
 
 (* Handles 2 argument operations (basic operations)*)
-and operation e1 e2 name count sym_env cstack = 
+and compileE_oper e1 e2 name count sym_env cstack = 
   (case compileE e1 count sym_env cstack
     of (e1_reg, count, cstack) => 
       (case compileE e2 count sym_env cstack 
@@ -53,7 +53,7 @@ and operation e1 e2 name count sym_env cstack =
   )
 
 (* Extracts function call *)
-and extractCallFunc e1 e2 count sym_env cstack = 
+and compileE_callfunc e1 e2 count sym_env cstack = 
   (case compileE e1 count sym_env cstack
     of (e1_reg, count, cstack) => 
       (case compileE e2 count sym_env cstack
@@ -97,7 +97,7 @@ and compileE_call str e count sym_env cstack =
           then
             callFunc (I.EIdent str) e count sym_env cstack
           else
-            extractCallFunc (I.EIdent str) e count sym_env cstack
+            compileE_callfunc (I.EIdent str) e count sym_env cstack
       end
   )
 (*I.EIf (e1, e2, e3)*)
@@ -144,63 +144,83 @@ and compileE_let sym e1 e2 count sym_env cstack =
       end
   )
 
-(*Compile Expression body*)
-and compileE (I.EVal v) count sym_env cstack = compileV v count cstack
-  | compileE (I.EIdent str) count sym_env cstack = ((lookup str sym_env), count, cstack)
-  | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count sym_env cstack = operation e1 e2 "add" count sym_env cstack
-  | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count sym_env cstack = operation e1 e2 "sub" count sym_env cstack
-  | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count sym_env cstack = operation e1 e2 "mul" count sym_env cstack
-  | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count sym_env cstack = operation e1 e2 "eq"  count sym_env cstack 
-  | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count sym_env cstack = operation e1 e2 "sgt" count sym_env cstack
-  | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env cstack = operation e1 e2 "slt" count sym_env cstack 
-  | compileE (I.EApp ((I.EIdent str), e)) count sym_env cstack = compileE_call str e count sym_env cstack
-  | compileE (I.EApp(e1, e2)) count sym_env cstack = extractCallFunc e1 e2 count sym_env cstack
-  | compileE (I.EIf (e1, e2, e3)) count sym_env cstack = compileE_if e1 e2 e3 count sym_env cstack
-  | compileE (I.ELet (sym, e1, e2)) count sym_env cstack = compileE_let sym e1 e2 count sym_env cstack 
-  | compileE (I.ELetFun (func_name, arg_name, e1, e2)) count sym_env cstack= let
-      val efun_expr = I.EFun(arg_name, e1)
-      in
-      (case (compileE efun_expr count sym_env cstack) of
-        (efun_reg, count, cstack) => let
-          val new_sym_env = (func_name, efun_reg)::sym_env
+(*(I.ELetFun (func, arg, e1, e2))*)
+and compileE_letfun func arg e1 e2 count sym_env cstack =
+  let
+    val efun_expr = I.EFun(arg, e1)
+  in
+    (case (compileE efun_expr count sym_env cstack)
+      of (efun_reg, count, cstack) => 
+        let
+          val new_sym_env = (func, efun_reg)::sym_env
         in
-          (case (compileE e2 count new_sym_env cstack) of
-            (e2_reg, count, cstack) =>
-              (e2_reg, count+1, cstack)
-            )
-        end)
-    end
+          (case (compileE e2 count new_sym_env cstack) 
+            of (e2_reg, count, cstack) =>
+              (e2_reg, count + 1, cstack)
+          )
+        end
+    )
+  end
 
-    | compileE (I.EFun (arg, e1)) count sym_env cstack =
-    (*(case (compileE e1 count sym_env cstack)*)
-       (*of (e1_reg, count, cstack) =>*)
-       let
-         val filtered = filter_env sym_env
-         val length_env = itos (List.length filtered)
-         val func_name = "func_" ^ (itos count) ^ "_" ^ itos (List.length sym_env)
-         val array_type = "[ " ^ length_env ^" x %value]"
-         val ar_base = "%ar_" ^ (itos count) ^ "_"
-         val inserts = List.foldr (fn (x,y) => case x of (name,reg) => (let
-           val on_idx = itos (List.length y)
-           val prev_idx = if on_idx = "0" then "undef" else ar_base ^ itos ((List.length y) -1)
-         in
-            y@[("    "^ar_base^on_idx^" = insertvalue " ^ array_type ^ " " ^ prev_idx ^ ", %value "^ reg ^ ", " ^ on_idx)]
-         end))
-            [] filtered 
-          val last_ar = ar_base ^ itos ((List.length filtered) - 1)
-         val localenv = "%localenv_"^ (itos count)
-         val casts =   ["    "^ localenv ^ " = call %value* @malloc_env(i64 " ^ length_env ^ ")",
-                        "    " ^ localenv ^ "_array = bitcast %value* " ^ localenv ^ " to " ^ array_type ^ "*",
-                        "    store " ^ array_type ^ " " ^ last_ar ^ ", " ^ array_type ^ "* "^ localenv ^ "_array",
-                        "    " ^ localenv ^"_ptr = bitcast " ^ array_type ^ "* " ^ localenv ^ "_array to %value*"]
-         val call = set_count_reg count ^
-            "call %value @wrap_func(%value(%value*, %value)* @" ^ func_name ^ ", %value* " ^ localenv ^ "_ptr)"
-         val declare = case compileDecl func_name [arg] e1 sym_env of 
+(*(I.EFun (arg, e1))*)
+and compileE_fun arg e1 count sym_env cstack = 
+  let
+    val filtered = filter_env sym_env
+    val length_env = itos (List.length filtered)
+    val func_name = "func_" ^ (itos count) ^ "_" ^ itos (List.length sym_env)
+    val array_type = "[ " ^ length_env ^" x %value]"
+    val ar_base = "%ar_" ^ (itos count) ^ "_"
+    val last_ar = ar_base ^ itos ((List.length filtered) - 1)
+    val localenv = "%localenv_"^ (itos count)
+    val declare = case compileDecl func_name [arg] e1 sym_env of 
           (body, sym_env) => body
+    val casts = 
+      [
+        "    "^ localenv ^ " = call %value* @malloc_env(i64 " ^ length_env ^ ")",
+        "    " ^ localenv ^ "_array = bitcast %value* " ^ localenv ^ " to " ^ array_type ^ "*",
+        "    store " ^ array_type ^ " " ^ last_ar ^ ", " ^ array_type ^ "* "^ localenv ^ "_array",
+        "    " ^ localenv ^"_ptr = bitcast " ^ array_type ^ "* " ^ localenv ^ "_array to %value*"
+      ]
+    val call = set_count_reg count
+            ^ "call %value @wrap_func(%value(%value*, %value)* @" 
+            ^ func_name ^ ", %value* " ^ localenv ^ "_ptr)"
+    val inserts = 
+      List.foldr (fn (x,y) => 
+        (case x of (name,reg) => 
+          (let
+            val on_idx = itos (List.length y)
+            val prev_idx = 
+              if on_idx = "0" 
+                then 
+                  "undef" 
+                else 
+                  ar_base ^ itos ((List.length y) -1)
           in
-            ( count_reg count, count+1, (declare::cstack)@inserts@casts@[call])
-          end
-    | compileE expr count sym_env cstack= compileError ("Not implemented:\n" ^ (I.stringOfExpr expr))
+            y@[("    " 
+                ^ ar_base ^ on_idx ^ " = insertvalue " 
+                ^ array_type ^ " " ^ prev_idx ^ ", %value " ^ reg ^ ", " ^ on_idx)]
+          end)
+        )) [] filtered 
+  in
+    ( count_reg count, count + 1, (declare::cstack)@inserts@casts@[call])
+  end
+
+(*Compile Expression body*)
+and compileE (I.EVal v) count sym_env cstack                               = compileV v count cstack
+  | compileE (I.EIdent str) count sym_env cstack                           = ((lookup str sym_env), count, cstack)
+  | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count sym_env cstack = compileE_oper e1 e2 "add" count sym_env cstack
+  | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count sym_env cstack = compileE_oper e1 e2 "sub" count sym_env cstack
+  | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count sym_env cstack = compileE_oper e1 e2 "mul" count sym_env cstack
+  | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count sym_env cstack = compileE_oper e1 e2 "eq"  count sym_env cstack 
+  | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count sym_env cstack = compileE_oper e1 e2 "sgt" count sym_env cstack
+  | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env cstack = compileE_oper e1 e2 "slt" count sym_env cstack 
+  | compileE (I.EApp ((I.EIdent str), e)) count sym_env cstack             = compileE_call str e count sym_env cstack
+  | compileE (I.EApp(e1, e2)) count sym_env cstack                         = compileE_callfunc e1 e2 count sym_env cstack
+  | compileE (I.EIf (e1, e2, e3)) count sym_env cstack                     = compileE_if e1 e2 e3 count sym_env cstack
+  | compileE (I.ELet (sym, e1, e2)) count sym_env cstack                   = compileE_let sym e1 e2 count sym_env cstack 
+  | compileE (I.ELetFun (func, arg, e1, e2)) count sym_env cstack          = compileE_letfun func arg e1 e2 count sym_env cstack
+  | compileE (I.EFun (arg, e1)) count sym_env cstack                       = compileE_fun arg e1 count sym_env cstack
+  | compileE expr count sym_env cstack                                     = compileError ("Not implemented:\n" ^ (I.stringOfExpr expr))
 
     (*| compileE (I.ECall (str, e::[])) count = case compileE e count of*)
       (*(strE, reg, count) => ((strE ^ "\n    " ^ "%" ^ (itos (count)) ^ " = call i32 @" ^ str ^ " (i32 %" ^ (itos (reg))  ^ " )"), count + 1, count + 2)*)
