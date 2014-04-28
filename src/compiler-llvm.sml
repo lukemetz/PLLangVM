@@ -1,46 +1,55 @@
 structure CompilerLLVM = struct
-
   structure I = InternalRepresentation
 
-  exception Compilation of string
+(*Compilation Exception Declaration and Helper*)
+exception Compilation of string
+fun compileError msg = raise Compilation msg
+ 
+(*Filter functions out of symbol environemnt*)
+fun filter_env sym_env = List.filter (fn x => case x of (str,reg) => not (String.substring (reg,0,1) = "@")) sym_env
 
-  fun compileError msg = raise Compilation msg
- (* compile a value into a sentence that produces that value *)
- fun filter_env sym_env = List.filter (fn x => case x of (str,reg) => not (String.substring (reg,0,1) = "@")) sym_env
-  fun lookup (name:string) [] = compileError ("failed lookup for "^name)
-    | lookup name ((n,sent)::env) =
-        if (n = name) then
-          (sent)
-  else lookup name env 
+(*Symbol Environment Lookup*)
+fun lookup (name:string) [] = compileError ("failed lookup for "^name)
+  | lookup name ((n,sent)::env) =
+    if (n = name) 
+      then
+        sent
+      else 
+        lookup name env 
 
-  fun make_lines xs = List.foldr (fn (x,y) => 
-    if x = "" then x ^ y else "\n" ^ x ^ y) "" xs
-  fun count_reg count = "%"^Int.toString count
-  fun set_count_reg count = "    " ^ count_reg count ^" = "
-  fun compileV (I.VInt i) count cstack = let
-    val str = "    " ^ count_reg count ^ " = call %value @wrap_i32(i32 " ^ Int.toString i ^ ")"
-  in
-    (count_reg count, count+1, cstack@[str])
-  end
-    | compileV _ _ _= compileError "Only ints supported"
+(*Joins lines of code with new lines to output to llvm file*)
+fun make_lines xs = List.foldr (fn (x,y) => if x = "" then x ^ y else "\n" ^ x ^ y) "" xs
 
-  (* compile an expression into a sentence that produces the same value
-     as the expression *)
+(*Helper to add % in front of count for temporary variables*)
+fun count_reg count = "%" ^ (Int.toString count)
 
-  and opify_2 e1 e2 name count sym_env cstack = (case compileE e1 count sym_env cstack of
-      (e1_reg, count, cstack) => (case compileE e2 count sym_env cstack of
-        (e2_reg, count, cstack) => let
-          val add_str = "    " ^ count_reg count ^ " = call %value @" ^ name ^"(%value " ^ e1_reg ^ ", %value " ^ e2_reg ^ ")"
-           in
-          (count_reg count, count + 1, cstack@[add_str])
-        end))
+(*Helper to set temp variables*)
+fun set_count_reg count = "    " ^ (count_reg count) ^" = "
 
-  and condition e1 e2 count sym_env cstack cond =
-      (case compileE e1 count sym_env cstack of
-        (e1_reg, count, cstack) => (case compileE e2 count sym_env cstack of
-          (e2_reg, count, cstack) => 
-            (count_reg count, count + 1, cstack@["    %" ^ Int.toString count ^ " = icmp "^ cond ^" %value" ^ e1_reg ^ ", " ^ e2_reg ])))
-  and extractCallFunc e1 e2 count sym_env cstack = (case compileE e1 count sym_env cstack of
+(*Compile Value to create i32*)
+fun compileV (I.VInt i) count cstack = 
+      let
+        val str = "    " ^ count_reg count ^ " = call %value @wrap_i32(i32 " ^ Int.toString i ^ ")"
+      in
+        (count_reg count, count+1, cstack@[str])
+      end
+  | compileV _ _ _= compileError "Only ints supported"
+
+(* Handles 2 argument operations (basic operations)*)
+and operation e1 e2 name count sym_env cstack = 
+  (case compileE e1 count sym_env cstack
+    of (e1_reg, count, cstack) => 
+      (case compileE e2 count sym_env cstack 
+        of (e2_reg, count, cstack) => 
+          let
+            val add_str = (set_count_reg count) ^ "call %value @" ^ name ^"(%value " ^ e1_reg ^ ", %value " ^ e2_reg ^ ")"
+          in
+            (count_reg count, count + 1, cstack@[add_str])
+        end
+      )
+  )
+
+and extractCallFunc e1 e2 count sym_env cstack = (case compileE e1 count sym_env cstack of
       (e1_reg, count, cstack) => (case compileE e2 count sym_env cstack of
       (e2_reg, count, cstack) => let
         val func_name_ptr = "%func_ptr_" ^ Int.toString count
@@ -63,12 +72,12 @@ structure CompilerLLVM = struct
                             end)
   and compileE (I.EVal v) count sym_env cstack = compileV v count cstack
     | compileE (I.EIdent str) count sym_env cstack = ((lookup str sym_env), count, cstack)
-    | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count sym_env cstack = opify_2 e1 e2 "add" count sym_env cstack
-    | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count sym_env cstack = opify_2 e1 e2 "sub" count sym_env cstack
-    | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count sym_env cstack = opify_2 e1 e2 "mul" count sym_env cstack
-    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count sym_env cstack = opify_2 e1 e2 "eq"  count sym_env cstack 
-    | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count sym_env cstack = opify_2 e1 e2 "sgt" count sym_env cstack
-    | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env cstack = opify_2 e1 e2 "slt" count sym_env cstack 
+    | compileE (I.EApp (I.EApp (I.EIdent "+", e1), e2)) count sym_env cstack = operation e1 e2 "add" count sym_env cstack
+    | compileE (I.EApp (I.EApp (I.EIdent "-", e1), e2)) count sym_env cstack = operation e1 e2 "sub" count sym_env cstack
+    | compileE (I.EApp (I.EApp (I.EIdent "*", e1), e2)) count sym_env cstack = operation e1 e2 "mul" count sym_env cstack
+    | compileE (I.EApp (I.EApp (I.EIdent "=", e1), e2)) count sym_env cstack = operation e1 e2 "eq"  count sym_env cstack 
+    | compileE (I.EApp (I.EApp (I.EIdent ">", e1), e2)) count sym_env cstack = operation e1 e2 "sgt" count sym_env cstack
+    | compileE (I.EApp (I.EApp (I.EIdent "<", e1), e2)) count sym_env cstack = operation e1 e2 "slt" count sym_env cstack 
     | compileE (I.EApp ((I.EIdent str), e)) count sym_env cstack= (case compileE e count sym_env cstack of
       (reg, count, cstack) => let
         val func_name = lookup str sym_env
