@@ -68,13 +68,29 @@ bool type. The second, `i32*`, is used to represent some pointer to some value, 
 
 This type has function pointer as well as a environment list.
 
-In our code, all functions have a `%value (%value*, %value) syntax, Or a
+In our code, all functions have a `%value (%value*, %value)` syntax, Or a
 function always returns a `%value`, and takes in a pointer to a `%value`
 and a `%value`. The pointer to `%value`, the first argument, is the
 environment. This is used only in closures that capture the environment.
 This standardized api allows us to easily call both functions and
 closures with similar syntax by just passing in a null pointer when an
 environment is not needed.
+
+<h4> Closures / first class functions </h4>
+In the processes of mapping a function language to a more procedural
+language, first class functions are always tricky. In our
+implementation, when an anonymous function is created, a new function is
+declared. This function has the name `@func_n`, where n is a counter
+used to ensure no definitions overlap in name. When storing the
+function, first that function pointer is obtained. Next, the size of the symbol environment is determined. This environment contains all of the variable names defined in visible
+scopes. A array is then `malloc`-ed, filled, and cast to the `%value*`
+type as to have a variable size. This pair, is then put into a `func_t`
+type, and cast to a `i32*` type and stored in a `%value`.
+
+When a closure is slated to be called, the values for the environment
+and the function pointer are extracted from the `%value` type, bitcast
+ to the correct types and called, passing in the environment stored as
+the first argument of the function pointer.
 
 <h3> Improvements </h3>
 <h4>Memory Management</h4>
@@ -94,6 +110,7 @@ Each time a `%value` is created, it is allocated on the heap via libc
 also should be attempting to use stack allocated variables instead of
 heap allocated ones. This will also give us a speed boost.
 
+<h4> Optimizations </h4>
 <b> Broken </b>
 <b>Next Steps:</b><br>
 Implement data types using llvm structures (hopefully, unions) with encoded type information. Our end goal in this respect is to have primitive dynamic type checking.<br>
