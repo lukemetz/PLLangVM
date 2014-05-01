@@ -53,6 +53,28 @@ Currently, we have basic mathematic operations implemented.<br>
 We have a naive implementation of Let, single argument function declarations and function calling, and conditionals, multi argument functions via currying, closures, and first order functions.<br>
 <br>
 <h3> How it works </h3> </br>
+<h4> Compiler </h4>
+Keeping with existing designs we worked with in this class, our compiler
+works recursively. At a top level, our compiler attempts to compile each
+deceleration in `compileDecl`. Declarations have a expression that we
+then compile with `compileE`. These two functions are the heart of our
+program, and where all the magic happens
+<h5> Count / Code Stack (cstack) / Symbol Environment sym_env</h5>
+One annoying issue with recursive compilers is they have no real notion
+of state or where they are in compiling. Because of this, chain along
+state such that its passed in, possibly modified, and returned. The
+three pieces of state we do this for are count, cstack, and sym_env.
+
+Count is used to ensure that our llvm variables don't overlap in name.
+When creating temporary values, we always number them with count.
+
+Cstack is list of strings that represent code. Each function we do adds
+to this cstack. By making this constantly passed and built vs gathered
+all the way at the end, we are able to add new function declarations to the
+beginning of cstack (like ones needed from anonymous functions),
+while continuing with our code at the end of the list.
+
+sym_env keeps track of symbols in our environment.
 
 <p> Environment </p>
 <p> Currying</p>
