@@ -81,9 +81,6 @@ sym_env keeps track of symbols in our environment.
  The tuples hold the symbol name and the llvm reference to that symbol. For variables, the symbol name is the variable name and the llvm reference is the register that holds that value. For functions, the symbol is the name of the function and the llvm reference is the global function name (i.e. @func_name). The compiler uses this function environment to pack and unpack the environment within the generated llvm code. Before we call a function, the environment is packed into a %value array and passed into the function. Once inside the function, the symbols are unpacked from the %value array in the order it was packed, recorded in the SML environment. This symbol environment allows us to keep track of scope within let and letfun calls. We are using the same names as whatever the function or variable is called in the inputted plang code. As a result for any temporary registers in the llvm generated code, we use underscores in the name, which are not allowed in the PLANG language. This prevents any conflicts between names. </p>
 <p> Using the symbol environment, our compiler can implement currying by simply transforming multiple argument functions to a sequence of EFun expressions. The let and letfun expression are both essentially compiled down to EFun expressions, so we got currying for frees.</p>
 
-<p> Environment </p>
-<p> Currying</p>
-
 
 <h4> Types </h4> </br>
 The language we have implemented supports dynamic types. Currently we
