@@ -60,10 +60,12 @@ purely due to lack of time and avoidance of boring work.
 
 These types are implemented via the %value type.
     %value = type {i8, i32*};
+
 The first value, the `i8`, denotes the type of the `%value`. In our
 code, 0 is a None type, 1 is an int type, 2 is a func type, and 3 is a
 bool type. The second, `i32*`, is used to represent some pointer to some value, not necessarily a i32. For the case of a int, and boolean, the value is just a i32. For the function type however, it is a pointer to the %func_t type.
     %func_t = type {%value (%value*, %value) *, %value *}
+
 This type has function pointer as well as a environment list.
 
 In our code, all functions have a `%value (%value*, %value) syntax, Or a
@@ -74,7 +76,25 @@ This standardized api allows us to easily call both functions and
 closures with similar syntax by just passing in a null pointer when an
 environment is not needed.
 
-<b> What doesn't work </b>
+<h3> Improvements </h3>
+<h4>Memory Management</h4>
+<h5> Leaks everywhere </h5>
+Currently, our code leaks a lot. Everytime we create any `%value`, when
+ever we do anything really, we allocate some memory on the heap and
+never remove it. For a toy langauge, this doesn't really matter, but in
+production this is unacceptable. LLVM supports basic garbage collection,
+but we are not using this. In addition to this, many of our values can
+avoid before we even get to garbage collection. Intermediate values for
+example, ones that don't have any name accociated with them can simply
+be freed once they are used.
+<h5> Heap allocation </h5>
+A huge slowdown in our code currently is the way we allocate memory.
+Each time a `%value` is created, it is allocated on the heap via libc
+`malloc`. `malloc` is quite bad at allocating small chunks of memory. We
+also should be attempting to use stack allocated variables instead of
+heap allocated ones. This will also give us a speed boost.
+
+<b> Broken </b>
 <b>Next Steps:</b><br>
 Implement data types using llvm structures (hopefully, unions) with encoded type information. Our end goal in this respect is to have primitive dynamic type checking.<br>
 Implement environments. These will be heap allocated structures that
