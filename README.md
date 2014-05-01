@@ -86,17 +86,11 @@ beginning of cstack (like ones needed from anonymous functions),
 while continuing with our code at the end of the list.
 
 sym_env keeps track of symbols in our environment.
-
-
-<h4> Compiler </h4>
-<p> Count </p>
+<h5> Symbol Environment </h5>
 <p> The plang-llvm compiler keeps track of the function environment for the let and letfun expressions. In sml, the function environment is denoted by "sym_env" where:
-<br>sym_env: string * string list<br>
+ `sym_env: string * string list` 
  The tuples hold the symbol name and the llvm reference to that symbol. For variables, the symbol name is the variable name and the llvm reference is the register that holds that value. For functions, the symbol is the name of the function and the llvm reference is the global function name (i.e. @func_name). The compiler uses this function environment to pack and unpack the environment within the generated llvm code. Before we call a function, the environment is packed into a %value array and passed into the function. Once inside the function, the symbols are unpacked from the %value array in the order it was packed, recorded in the SML environment. This symbol environment allows us to keep track of scope within let and letfun calls. We are using the same names as whatever the function or variable is called in the inputted plang code. As a result for any temporary registers in the llvm generated code, we use underscores in the name, which are not allowed in the PLANG language. This prevents any conflicts between names. </p>
 <p> Using the symbol environment, our compiler can implement currying by simply transforming multiple argument functions to a sequence of EFun expressions. The let and letfun expression are both essentially compiled down to EFun expressions, so we got currying for frees.</p>
-
-<p> Environment </p>
-<p> Currying</p>
 
 
 <h4> Types </h4> </br>
@@ -104,14 +98,9 @@ The language we have implemented supports dynamic types. Currently we
 only support 3 types, bools, integers, and functions. This limitation is
 purely due to lack of time and avoidance of boring work.
 
-These types are implemented via the %value type.
-    %value = type {i8, i32*};
-
-The first value, the `i8`, denotes the type of the `%value`. In our
-code, 0 is a None type, 1 is an int type, 2 is a func type, and 3 is a
+These types are implemented via the %value type. `%value = type {i8, i32*}` The first value, the `i8`, denotes the type of the `%value`. In our code, 0 is a None type, 1 is an int type, 2 is a func type, and 3 is a
 bool type. The second, `i32*`, is used to represent some pointer to some value, not necessarily a i32. For the case of a int, and boolean, the value is just a i32. For the function type however, it is a pointer to the %func_t type.
-    %func_t = type {%value (%value*, %value) *, %value *}
-
+`%func_t = type {%value (%value*, %value) *, %value *}`
 This type has function pointer as well as a environment list.
 
 In our code, all functions have a `%value (%value*, %value)` syntax, Or a
