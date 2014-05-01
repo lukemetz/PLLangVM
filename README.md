@@ -29,7 +29,7 @@ For Linux users, <br>
 For OSX users, <br>
 `Sorry.`
 
-These scrips are simple wrappers around sml. They simply clean the build
+These scripts are simple wrappers around sml. They simply clean the build
 directory, run sml run.sml some_file.plg. They then use the generated
 .ll file, and call llc on it to generate a .s file. gcc is then called
 to compile the .s file. To see our code work and generate llvm ir files,
@@ -75,21 +75,21 @@ One annoying issue with recursive compilers is they have no real notion
 of state or where they are in compiling. Because of this, chain along
 state such that its passed in, possibly modified, and returned. The
 three pieces of state we do this for are count, cstack, and sym_env.
-
+<br><br>
 Count is used to ensure that our llvm variables don't overlap in name.
 When creating temporary values, we always number them with count.
-
+<br><br>
 Cstack is list of strings that represent code. Each function we do adds
 to this cstack. By making this constantly passed and built vs gathered
 all the way at the end, we are able to add new function declarations to the
 beginning of cstack (like ones needed from anonymous functions),
 while continuing with our code at the end of the list.
 
-sym_env keeps track of symbols in our environment.
+
 <h5> Symbol Environment </h5>
 <p> The plang-llvm compiler keeps track of the function environment for the let and letfun expressions. In sml, the function environment is denoted by "sym_env" where:
  `sym_env: string * string list` 
- The tuples hold the symbol name and the llvm reference to that symbol. For variables, the symbol name is the variable name and the llvm reference is the register that holds that value. For functions, the symbol is the name of the function and the llvm reference is the global function name (i.e. @func_name). The compiler uses this function environment to pack and unpack the environment within the generated llvm code. Before we call a function, the environment is packed into a %value array and passed into the function. Once inside the function, the symbols are unpacked from the %value array in the order it was packed, recorded in the SML environment. This symbol environment allows us to keep track of scope within let and letfun calls. We are using the same names as whatever the function or variable is called in the inputted plang code. As a result for any temporary registers in the llvm generated code, we use underscores in the name, which are not allowed in the PLANG language. This prevents any conflicts between names. </p>
+ The tuples hold the symbol name and the llvm reference to that symbol. For variables, the symbol name is the variable name and the llvm reference is the register that holds that value. For functions, the symbol is the name of the function and the llvm reference is the global function name (i.e. @func_name). <br><br>The compiler uses this function environment to pack and unpack the environment within the generated llvm code. Before we call a function, the environment is packed into a %value array and passed into the function. Once inside the function, the symbols are unpacked from the %value array in the order it was packed, recorded in the SML environment. <br><br>This symbol environment allows us to keep track of scope within let and letfun calls. We are using the same names as whatever the function or variable is called in the inputted plang code. As a result for any temporary registers in the llvm generated code, we use underscores in the name, which are not allowed in the PLANG language. This prevents any conflicts between names. </p>
 <p> Using the symbol environment, our compiler can implement currying by simply transforming multiple argument functions to a sequence of EFun expressions. The let and letfun expression are both essentially compiled down to EFun expressions, so we got currying for frees.</p>
 
 
@@ -97,12 +97,12 @@ sym_env keeps track of symbols in our environment.
 The language we have implemented supports dynamic types. Currently we
 only support 3 types, bools, integers, and functions. This limitation is
 purely due to lack of time and avoidance of boring work.
-
+<br><br>
 These types are implemented via the %value type. `%value = type {i8, i32*}` The first value, the `i8`, denotes the type of the `%value`. In our code, 0 is a None type, 1 is an int type, 2 is a func type, and 3 is a
 bool type. The second, `i32*`, is used to represent some pointer to some value, not necessarily a i32. For the case of a int, and boolean, the value is just a i32. For the function type however, it is a pointer to the %func_t type.
 `%func_t = type {%value (%value*, %value) *, %value *}`
 This type has function pointer as well as a environment list.
-
+<br><br>
 In our code, all functions have a `%value (%value*, %value)` syntax, Or a
 function always returns a `%value`, and takes in a pointer to a `%value`
 and a `%value`. The pointer to `%value`, the first argument, is the
@@ -121,7 +121,7 @@ function, first that function pointer is obtained. Next, the size of the symbol 
 scopes. A array is then `malloc`-ed, filled, and cast to the `%value*`
 type as to have a variable size. This pair, is then put into a `func_t`
 type, and cast to a `i32*` type and stored in a `%value`.
-
+<br><br>
 When a closure is slated to be called, the values for the environment
 and the function pointer are extracted from the `%value` type, bitcast
  to the correct types and called, passing in the environment stored as
@@ -129,7 +129,7 @@ the first argument of the function pointer.
 
 <h4> Boiler Plate </h4>
 As you might have guessed so far, our code has a lot of type casting and
-annoying hoops ones has to jump through when working with data. To
+annoying hoops one has to jump through when working with data. To
 combat this, we created a number of helper llvm functions that can be
 found in src/boiler.ll. These functions abstract all of the annoying
 type casting allowing the execution of our code to be a little more
@@ -139,17 +139,17 @@ data type, and wrap them inside a %value. These include `@wrap_i32`,
 support extracting with `@extract_i1`, `@extract_i32`, And for
 functions, `@extract_env` and `@extract_func`. These functions are set
 to `alwaysinline` for speed.
-
+<br><br>
 In addition to these type conversions, we also have several common
 primitives hard coded to work in %values. These include `@eq` (equality)
 `@add`, `@sub`, `@slt` (less than), `@sgt` (greater than) ,
 `@mul`. While these could be implemented via currying, we
 chose to hardcode them here for a mixture of speed, and ease of
 development.
-
+<br><br>
 We also have a few malloc helper functions, `@malloc_i32`, and
 `@malloc_env` to avoid code duplication.
-
+<br><br>
 There also a few functions that wrap libc apis. These include `@malloc`,
 and `@printf`. We expose `@printf` to the user via the `@print` function
 which is of the standard function api.
