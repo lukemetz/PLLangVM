@@ -7,8 +7,6 @@ Programming language implementation and design final project with llvm!
 Luke Metz<br>
 Chris Lee<br>
 
-
-
 Instructions for Compiling
 ===========================
 
@@ -29,12 +27,12 @@ For Linux users, <br>
 For OSX users, <br>
 `Sorry.`
 
-These scripts are simple wrappers around sml. They simply clean the build
-directory, run sml run.sml some_file.plg. They then use the generated
-.ll file, and call llc on it to generate a .s file. gcc is then called
+These scripts are simple wrappers around the sml command. They simply clean the build
+directory, run `sml run.sml some_file.plg`. They then use the generated
+.ll file, and call `llc` on it to generate a .s file. `gcc` is then called
 to compile the .s file. To see our code work and generate llvm ir files,
 all one needs is sml. To be able to compile the code however you will
-need llc binary and come assembly compiler such as gcc.
+need the llc binary (comes with llvm) and come assembly compiler such as gcc.
 
 The Project
 ==========================
@@ -46,6 +44,8 @@ Programming language implementation and design final project with llvm using cod
 <li>src</li>
  SML back-end for our language. The bulk of this is from your functional
 programming language. We are mainly working on compile-llvm.sml.<br>
+<li>src/boiler.ll</li>
+  Boiler plate code for our llvm generated code
 <li>run.py</li>
  Python script that runs the compilation commands<br>
 <li>run.sml</li>
@@ -58,8 +58,7 @@ in the form of .ll files.
  </ul>
 
 <b>High level what works</b><br>
-We have basic math, dynamic types, lets, letfuns, single argument function declarations
- and function calling, and conditionals, multi argument functions via currying, closures,
+We have basic math, dynamic types, lets, letfuns, single argument function declarations, function calling, and conditionals, if else, multi argument functions via currying, closures,
 and first order functions.<br>
 
 <br>
@@ -69,12 +68,12 @@ Keeping with existing designs we worked with in this class, our compiler
 works recursively. At a top level, our compiler attempts to compile each
 deceleration in `compileDecl`. Declarations have a expression that we
 then compile with `compileE`. These two functions are the heart of our
-program, and where all the magic happens
+program, and where all the magic happens.
 <h5> Count / Code Stack (cstack) / Symbol Environment sym_env</h5>
 One annoying issue with recursive compilers is they have no real notion
 of state or where they are in compiling. Because of this, chain along
-state such that its passed in, possibly modified, and returned. The
-three pieces of state we do this for are count, cstack, and sym_env.
+state such that its passed in, possibly modified, and returned each call
+to compileE. The three pieces of state we do this for are count, cstack, and sym_env.
 <br><br>
 Count is used to ensure that our llvm variables don't overlap in name.
 When creating temporary values, we always number them with count.
@@ -89,7 +88,11 @@ while continuing with our code at the end of the list.
 <h5> Symbol Environment </h5>
 <p> The plang-llvm compiler keeps track of the function environment for the let and letfun expressions. In sml, the function environment is denoted by "sym_env" where:
  `sym_env: string * string list` 
- The tuples hold the symbol name and the llvm reference to that symbol. For variables, the symbol name is the variable name and the llvm reference is the register that holds that value. For functions, the symbol is the name of the function and the llvm reference is the global function name (i.e. @func_name). <br><br>The compiler uses this function environment to pack and unpack the environment within the generated llvm code. Before we call a function, the environment is packed into a %value array and passed into the function. Once inside the function, the symbols are unpacked from the %value array in the order it was packed, recorded in the SML environment. <br><br>This symbol environment allows us to keep track of scope within let and letfun calls. We are using the same names as whatever the function or variable is called in the inputted plang code. As a result for any temporary registers in the llvm generated code, we use underscores in the name, which are not allowed in the PLANG language. This prevents any conflicts between names. </p>
+ The tuples hold the symbol name and the llvm reference to that symbol. For variables, the symbol name is the variable name and the llvm reference is the register that holds that value. For functions, the symbol is the name of the function and the llvm reference is the global function name (i.e. @func_name).
+<br><br>
+The compiler uses this function environment to pack and unpack the environment within the generated llvm code. Before we call a function, the environment is packed into a `%value` array and passed into the function. Once inside the function, the symbols are unpacked from the `%value` array in the order it was packed, recorded in the SML environment.
+<br><br>
+This symbol environment allows us to keep track of scope within let and letfun calls. We are using the same names as whatever the function or variable is called in the inputted plang code. As a result for any temporary registers in the llvm generated code, we use underscores in the name, which are not allowed in the PLANG language. This prevents any conflicts between names. </p>
 <p> Using the symbol environment, our compiler can implement currying by simply transforming multiple argument functions to a sequence of EFun expressions. The let and letfun expression are both essentially compiled down to EFun expressions, so we got currying for frees.</p>
 
 
