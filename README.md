@@ -50,10 +50,31 @@ programming language. We are mainly working on compile-llvm.sml.<br>
 
 <b>What we have implemented:</b><br>
 Currently, we have basic mathematic operations implemented.<br>
-We have a naive implementation of Let, single argument function declarations and function calling, and conditionals.<br>
- <br>
-Unfortunately as of now, we are only handling 32-bit integer types.
+We have a naive implementation of Let, single argument function declarations and function calling, and conditionals, multi argument functions via currying, closures, and first order functions.<br>
+<br>
+<h3> How it works </h3> </br>
+<h4> Types </h4> </br>
+The language we have implemented supports dynamic types. Currently we
+only support 3 types, bools, integers, and functions. This limitation is
+purely due to lack of time and avoidance of boring work.
 
+These types are implemented via the %value type.
+    %value = type {i8, i32*};
+The first value, the `i8`, denotes the type of the `%value`. In our
+code, 0 is a None type, 1 is an int type, 2 is a func type, and 3 is a
+bool type. The second, `i32*`, is used to represent some pointer to some value, not necessarily a i32. For the case of a int, and boolean, the value is just a i32. For the function type however, it is a pointer to the %func_t type.
+    %func_t = type {%value (%value*, %value) *, %value *}
+This type has function pointer as well as a environment list.
+
+In our code, all functions have a `%value (%value*, %value) syntax, Or a
+function always returns a `%value`, and takes in a pointer to a `%value`
+and a `%value`. The pointer to `%value`, the first argument, is the
+environment. This is used only in closures that capture the environment.
+This standardized api allows us to easily call both functions and
+closures with similar syntax by just passing in a null pointer when an
+environment is not needed.
+
+<b> What doesn't work </b>
 <b>Next Steps:</b><br>
 Implement data types using llvm structures (hopefully, unions) with encoded type information. Our end goal in this respect is to have primitive dynamic type checking.<br>
 Implement environments. These will be heap allocated structures that
