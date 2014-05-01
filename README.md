@@ -53,6 +53,15 @@ Currently, we have basic mathematic operations implemented.<br>
 We have a naive implementation of Let, single argument function declarations and function calling, and conditionals, multi argument functions via currying, closures, and first order functions.<br>
 <br>
 <h3> How it works </h3> </br>
+<h4> Boiler Plate </h4>
+<p>Value Wrap Helpers</p>
+<p> </p>
+
+<h4> Compiler </h4>
+<p> Count </p>
+<p> Environment </p>
+<p> Currying</p>
+
 <h4> Types </h4> </br>
 The language we have implemented supports dynamic types. Currently we
 only support 3 types, bools, integers, and functions. This limitation is
@@ -117,3 +126,5 @@ Implement data types using llvm structures (hopefully, unions) with encoded type
 Implement environments. These will be heap allocated structures that
 contain pointers to what ever variables are in scope.
 Finally, with this environment set up, we will implement closures and then currying. <br>
+
+
