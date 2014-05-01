@@ -1,7 +1,7 @@
 PLLangVM
 ========
 <b>Description:</b><br>
-Programming langauge implementation and design final project with llvm!
+Programming language implementation and design final project with llvm!
 
 <b>Team:</b><br>
 Luke Metz<br>
@@ -38,7 +38,7 @@ need llc binary and come assembly compiler such as gcc.
 
 The Project
 ==========================
-Programming langauge implementation and design final project with llvm using code from previous lectures.
+Programming language implementation and design final project with llvm using code from previous lectures.
 <b>Project structure:</b><br>
 <ul>
 <li>build</li>
@@ -144,7 +144,7 @@ In addition to these type conversions, we also have several common
 primitives hard coded to work in %values. These include `@eq` (equality)
 `@add`, `@sub`, `@slt` (less than), `@sgt` (greater than) ,
 `@mul`. While these could be implemented via currying, we
-chose to hardcode them here for a mixture of speed, and ease of
+chose to hard-code them here for a mixture of speed, and ease of
 development.
 <br><br>
 We also have a few malloc helper functions, `@malloc_i32`, and
@@ -157,13 +157,13 @@ which is of the standard function api.
 <h3> Improvements </h3>
 <h4>Memory Management</h4>
 <h5> Leaks everywhere </h5>
-Currently, our code leaks a lot. Everytime we create any `%value`, when
+Currently, our code leaks a lot every time we create any `%value`. When
 ever we do anything really, we allocate some memory on the heap and
-never remove it. For a toy langauge, this doesn't really matter, but in
+never remove it. For a toy language, this doesn't really matter, but in
 production this is unacceptable. LLVM supports basic garbage collection,
 but we are not using this. In addition to this, many of our values can
 avoid before we even get to garbage collection. Intermediate values for
-example, ones that don't have any name accociated with them can simply
+example, ones that don't have any name associated with them can simply
 be freed once they are used.
 <h5> Heap allocation </h5>
 A huge slowdown in our code currently is the way we allocate memory.
