@@ -39,7 +39,7 @@ need llc binary and come assembly compiler such as gcc.
 The Project
 ==========================
 Programming language implementation and design final project with llvm using code from previous lectures.
-<b>Project structure:</b><br>
+<br><b>Project structure:</b><br>
 <ul>
 <li>build</li>
  llvm and c compilation outputs<br>
