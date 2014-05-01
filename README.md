@@ -42,6 +42,8 @@ Programming langauge implementation and design final project with llvm using cod
 programming language. We are mainly working on compile-llvm.sml.<br>
 <li>run.py</li>
  Python script that runs the compilation commands<br>
+ <li>tests.py</li>
+ Runs a small set of tests located in tests. Ensures basicic funcionality is working: source -> llvm ir -> assembly ->executable -> running/
 <li>run.sml</li>
  SML script that handles the input/output of the .plg script. <br>
 <li>test.plg</li>
