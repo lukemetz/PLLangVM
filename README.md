@@ -173,11 +173,12 @@ also should be attempting to use stack allocated variables instead of
 heap allocated ones. This will also give us a speed boost.
 
 <h4> Optimizations </h4>
-<b> Broken </b>
-<b>Next Steps:</b><br>
-Implement data types using llvm structures (hopefully, unions) with encoded type information. Our end goal in this respect is to have primitive dynamic type checking.<br>
-Implement environments. These will be heap allocated structures that
-contain pointers to what ever variables are in scope.
-Finally, with this environment set up, we will implement closures and then currying. <br>
+Many languages have some notion of optimizations before compilation.
+LLVM handles a lot of this for us, but there are plenty of things we
+should still be doing. To start with, in many cases we wrap values as
+`%value` then immediately unwrap them. The wrapping and unwrapping should
+not be done.
 
-
+In addition to this, by wrapping all of our values inside heap allocated
+structures, LLVM is going to have a very hard time optimizing. For
+example, constant folding will cease to exist.
