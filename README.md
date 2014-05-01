@@ -53,9 +53,7 @@ Currently, we have basic mathematic operations implemented.<br>
 We have a naive implementation of Let, single argument function declarations and function calling, and conditionals, multi argument functions via currying, closures, and first order functions.<br>
 <br>
 <h3> How it works </h3> </br>
-<h4> Boiler Plate </h4>
-<p>Value Wrap Helpers</p>
-<p> </p>
+
 
 <h4> Compiler </h4>
 <p> Count </p>
@@ -63,6 +61,10 @@ We have a naive implementation of Let, single argument function declarations and
 <br>sym_env: string * string list<br>
  The tuples hold the symbol name and the llvm reference to that symbol. For variables, the symbol name is the variable name and the llvm reference is the register that holds that value. For functions, the symbol is the name of the function and the llvm reference is the global function name (i.e. @func_name). The compiler uses this function environment to pack and unpack the environment within the generated llvm code. Before we call a function, the environment is packed into a %value array and passed into the function. Once inside the function, the symbols are unpacked from the %value array in the order it was packed, recorded in the SML environment. This symbol environment allows us to keep track of scope within let and letfun calls. We are using the same names as whatever the function or variable is called in the inputted plang code. As a result for any temporary registers in the llvm generated code, we use underscores in the name, which are not allowed in the PLANG language. This prevents any conflicts between names. </p>
 <p> Using the symbol environment, our compiler can implement currying by simply transforming multiple argument functions to a sequence of EFun expressions. The let and letfun expression are both essentially compiled down to EFun expressions, so we got currying for frees.</p>
+
+<p> Environment </p>
+<p> Currying</p>
+
 
 <h4> Types </h4> </br>
 The language we have implemented supports dynamic types. Currently we
@@ -102,6 +104,33 @@ When a closure is slated to be called, the values for the environment
 and the function pointer are extracted from the `%value` type, bitcast
  to the correct types and called, passing in the environment stored as
 the first argument of the function pointer.
+
+<h4> Boiler Plate </h4>
+As you might have guessed so far, our code has a lot of type casting and
+annoying hoops ones has to jump through when working with data. To
+combat this, we created a number of helper llvm functions that can be
+found in src/boiler.ll. These functions abstract all of the annoying
+type casting allowing the execution of our code to be a little more
+readable. We have wrapping functions, functions that take some arbitrary
+data type, and wrap them inside a %value. These include `@wrap_i32`,
+`@wrap_i1`, `@wrap_func`. In addition to wrapping these values, we also
+support extracting with `@extract_i1`, `@extract_i32`, And for
+functions, `@extract_env` and `@extract_func`. These functions are set
+to `alwaysinline` for speed.
+
+In addition to these type conversions, we also have several common
+primitives hard coded to work in %values. These include `@eq` (equality)
+`@add`, `@sub`, `@slt` (less than), `@sgt` (greater than) ,
+`@mul`. While these could be implemented via currying, we
+chose to hardcode them here for a mixture of speed, and ease of
+development.
+
+We also have a few malloc helper functions, `@malloc_i32`, and
+`@malloc_env` to avoid code duplication.
+
+There also a few functions that wrap libc apis. These include `@malloc`,
+and `@printf`. We expose `@printf` to the user via the `@print` function
+which is of the standard function api.
 
 <h3> Improvements </h3>
 <h4>Memory Management</h4>
