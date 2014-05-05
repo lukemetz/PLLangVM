@@ -3,10 +3,7 @@ define void @main(%value* %env, %value %x){
     %1 = call %value @wrap_i32(i32 1)
     %2 = call %value @wrap_i32(i32 1)
     %3 = call %value @add(%value %1, %value %2)
-    %4 = call %value @wrap_i32(i32 1)
-    %5 = call %value @wrap_i32(i32 1)
-    %6 = call %value @add(%value %4, %value %5)
-    %7 =  call %value @print (%value* null, %value %6)
+    %4 =  call %value @print (%value* null, %value %3)
     ret void
 }
 

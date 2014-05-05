@@ -10,31 +10,23 @@ then1:
 else1:
     %4 = call %value @wrap_i32(i32 1)
     %5 = call %value @sub(%value %x, %value %4)
-    %6 = call %value @wrap_i32(i32 1)
-    %7 = call %value @sub(%value %x, %value %6)
-    %8 =  call %value @fib (%value* null, %value %7)
-    %9 = call %value @wrap_i32(i32 2)
-    %10 = call %value @sub(%value %x, %value %9)
-    %11 = call %value @wrap_i32(i32 2)
-    %12 = call %value @sub(%value %x, %value %11)
-    %13 =  call %value @fib (%value* null, %value %12)
-    %14 = call %value @add(%value %8, %value %13)
+    %6 =  call %value @fib (%value* null, %value %5)
+    %7 = call %value @wrap_i32(i32 2)
+    %8 = call %value @sub(%value %x, %value %7)
+    %9 =  call %value @fib (%value* null, %value %8)
+    %10 = call %value @add(%value %6, %value %9)
     br label %ifcont1
 ifcont1:
-    %15 =  phi %value [%3, %then1], [%14, %else1]
-    ret %value %15
+    %11 =  phi %value [%3, %then1], [%10, %else1]
+    ret %value %11
 }
 
 
 define void @main(%value* %env, %value %y){
     %1 = call %value @wrap_i32(i32 1)
     %2 = call %value @wrap_i32(i32 10)
-    %3 = call %value @wrap_i32(i32 10)
-    %4 =  call %value @fib (%value* null, %value %3)
-    %5 = call %value @wrap_i32(i32 10)
-    %6 = call %value @wrap_i32(i32 10)
-    %7 =  call %value @fib (%value* null, %value %6)
-    %8 =  call %value @print (%value* null, %value %7)
+    %3 =  call %value @fib (%value* null, %value %2)
+    %4 =  call %value @print (%value* null, %value %3)
     ret void
 }
 

@@ -13,20 +13,7 @@ else1:
     br label %ifcont1
 ifcont1:
     %6 =  phi %value [%4, %then1], [%5, %else1]
-    %7 = call %value @wrap_i32(i32 1)
-    %8 = call %value @wrap_i32(i32 1)
-    %9 = call %value @eq(%value %7, %value %8)
-    %to_i8_7 = call i1 @extract_i1( %value %9)
-    br i1 %to_i8_7, label %then7, label %else7
-then7:
-    %10 = call %value @wrap_i32(i32 4)
-    br label %ifcont7
-else7:
-    %11 = call %value @wrap_i32(i32 8)
-    br label %ifcont7
-ifcont7:
-    %12 =  phi %value [%10, %then7], [%11, %else7]
-    %13 =  call %value @print (%value* null, %value %12)
+    %7 =  call %value @print (%value* null, %value %6)
     ret void
 }
 

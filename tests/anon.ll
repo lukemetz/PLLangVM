@@ -1,15 +1,5 @@
 
 
-define %value @func_5_3(%value* %env, %value %z){
-    %localenv_extract_array = bitcast %value* %env to [1x %value]*
-    %localenv_extract = load [1x %value]* %localenv_extract_array
-    %x = extractvalue [1x %value] %localenv_extract, 0
-    %1 = call %value @wrap_i32(i32 31)
-    %2 = call %value @add(%value %z, %value %1)
-    ret %value %2
-}
-
-
 define %value @func_1_3(%value* %env, %value %z){
     %localenv_extract_array = bitcast %value* %env to [1x %value]*
     %localenv_extract = load [1x %value]* %localenv_extract_array
@@ -27,22 +17,10 @@ define void @main(%value* %env, %value %x){
     %localenv_1_ptr = bitcast [ 1 x %value]* %localenv_1_array to %value*
     %1 = call %value @wrap_func(%value(%value*, %value)* @func_1_3, %value* %localenv_1_ptr)
     %2 = call %value @wrap_i32(i32 11)
-    %3 = call %value @wrap_i32(i32 11)
-    %func_ptr_4 = call %value(%value*, %value)*(%value)* @extract_func(%value %1)
-    %func_env_4 = call %value* @extract_env(%value %1)
-    %4 =  call %value %func_ptr_4(%value * %func_env_4, %value %3)
-    %ar_5_0 = insertvalue [ 1 x %value] undef, %value %x, 0
-    %localenv_5 = call %value* @malloc_env(i64 1)
-    %localenv_5_array = bitcast %value* %localenv_5 to [ 1 x %value]*
-    store [ 1 x %value] %ar_5_0, [ 1 x %value]* %localenv_5_array
-    %localenv_5_ptr = bitcast [ 1 x %value]* %localenv_5_array to %value*
-    %5 = call %value @wrap_func(%value(%value*, %value)* @func_5_3, %value* %localenv_5_ptr)
-    %6 = call %value @wrap_i32(i32 11)
-    %7 = call %value @wrap_i32(i32 11)
-    %func_ptr_8 = call %value(%value*, %value)*(%value)* @extract_func(%value %5)
-    %func_env_8 = call %value* @extract_env(%value %5)
-    %8 =  call %value %func_ptr_8(%value * %func_env_8, %value %7)
-    %9 =  call %value @print (%value* null, %value %8)
+    %func_ptr_3 = call %value(%value*, %value)*(%value)* @extract_func(%value %1)
+    %func_env_3 = call %value* @extract_env(%value %1)
+    %3 =  call %value %func_ptr_3(%value * %func_env_3, %value %2)
+    %4 =  call %value @print (%value* null, %value %3)
     ret void
 }
 
