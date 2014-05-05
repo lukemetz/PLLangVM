@@ -142,19 +142,16 @@ and callFunc (I.EIdent str) e2 count sym_env cstack =
 
 (* (I.EApp ((I.EIdent str), e)) *)
 and compileE_call str e count sym_env cstack = 
-  (case compileE e count sym_env cstack 
-    of (reg, count_, cstack_) => 
-      let
-        val func_name = lookup str sym_env
-        val first_letter = String.substring (func_name, 0, 1)
-      in
-        if first_letter = "@" 
-          then
-            callFunc (I.EIdent str) e count sym_env cstack
-          else
-            compileE_callfunc (I.EIdent str) e count sym_env cstack
-      end
-  )
+    let
+      val func_name = lookup str sym_env
+      val first_letter = String.substring (func_name, 0, 1)
+    in
+      if first_letter = "@" 
+        then
+          callFunc (I.EIdent str) e count sym_env cstack
+        else
+          compileE_callfunc (I.EIdent str) e count sym_env cstack
+    end
 (*I.EIf (e1, e2, e3)*)
 and compileE_if e1 e2 e3 count sym_env cstack = 
   let
