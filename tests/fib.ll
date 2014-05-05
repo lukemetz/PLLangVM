@@ -23,6 +23,9 @@ ifcont1:
 
 
 define void @main(%value* %env, %value %y){
+    %1 = call %value @wrap_i32(i32 10)
+    %2 =  call %value @fib (%value* null, %value %1)
+    %3 =  call %value @print (%value* null, %value %2)
     ret void
 }
 
